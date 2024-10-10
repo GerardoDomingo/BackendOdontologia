@@ -3,24 +3,42 @@ const db = require('../db'); // Importamos la conexión a la base de datos
 const bcrypt = require('bcrypt');
 const router = express.Router();
 
+
 // Ruta para registrar usuarios
 router.post('/register', async (req, res) => {
     const { nombre, aPaterno, aMaterno, telefono, email, password } = req.body;
-    
-    // Hashear la contraseña antes de guardarla
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const query = `INSERT INTO usuarios (nombre, aPaterno, aMaterno, telefono, email, password) 
-                   VALUES (?, ?, ?, ?, ?, ?)`;
 
-    db.query(query, [nombre, aPaterno, aMaterno, telefono, email, hashedPassword], (err, result) => {
+    // Verificar si el correo ya está registrado
+    const checkEmailQuery = `SELECT * FROM usuarios WHERE email = ?`;
+    
+    db.query(checkEmailQuery, [email], async (err, result) => {
         if (err) {
             console.log(err);
             return res.status(500).send('Error en el servidor');
         }
-        res.status(200).send('Usuario registrado con éxito');
+
+        // Si el correo ya existe, enviar respuesta
+        if (result.length > 0) {
+            return res.status(409).send('El correo electrónico ya está en uso.'); // Conflicto
+        }
+
+        // Hashear la contraseña antes de guardarla
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const query = `INSERT INTO usuarios (nombre, aPaterno, aMaterno, telefono, email, password) 
+                       VALUES (?, ?, ?, ?, ?, ?)`;
+
+        db.query(query, [nombre, aPaterno, aMaterno, telefono, email, hashedPassword], (err, result) => {
+            if (err) {
+                console.log(err);
+                return res.status(500).send('Error en el servidor');
+            }
+            res.status(200).send('Usuario registrado con éxito');
+        });
     });
 });
+
+
 
 // Ruta para iniciar sesión (login)
 router.post('/login', (req, res) => {
@@ -52,3 +70,4 @@ router.post('/login', (req, res) => {
 });
 
 module.exports = router;
+
