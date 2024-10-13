@@ -18,6 +18,7 @@ app.use('/api/users', userRoutes);
 //politicas
 app.use('/api/politicas', politicas);
 app.use('/api/deslinde', deslindelegal);
+
 app.use('/api/termiCondicion',terminos_condiciones);
 
 // Iniciar servidor

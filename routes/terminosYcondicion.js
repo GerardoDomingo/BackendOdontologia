@@ -51,7 +51,6 @@ router.delete('/delete/:id', (req, res) => {
 // Ruta para obtener todos los términos y condiciones
 router.get('/getterminos', (req, res) => {
     const query = `SELECT * FROM terminos_condiciones ORDER BY numero_termino`;
-
     db.query(query, (err, results) => {
         if (err) {
             console.log(err);
