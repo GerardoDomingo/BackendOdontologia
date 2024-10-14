@@ -14,7 +14,7 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3aopf6uYgEWy4A1k&response=${captchaValue}`;
+        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3oqpf6uYgEWy4A1k&response=${captchaValue}`;
         const captchaResponse = await axios.post(verifyUrl);
 
         console.log('Respuesta del captcha de Google:', captchaResponse.data);
