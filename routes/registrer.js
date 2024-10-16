@@ -97,7 +97,7 @@ router.post('/recuperacion', async (req, res) => {
 
             // Generar un token de recuperación utilizando el campo `token_verificacion`
             const token = generateToken();
-            const tokenExpiration = new Date(Date.now() + 3600000); // Expira en 1 hora
+            const tokenExpiration = new Date(Date.now() + 900000); // Expira en 15 minutos
 
             // Actualizar la base de datos con el token de verificación y la expiración
             const updateTokenSql = 'UPDATE pacientes SET token_verificacion = ?, token_expiracion = ? WHERE email = ?';
@@ -123,7 +123,8 @@ router.post('/recuperacion', async (req, res) => {
                                 <div style="padding: 10px; background-color: #f0f0f0; border-radius: 5px; display: inline-block; margin: 20px 0;">
                                     <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${token}</span>
                                 </div>
-                                <p><b>Nota:</b> Este código caduca en 1 hora.</p>
+                                <p style="color: #d32f2f; font-weight: bold; font-size: 18px;">El token debe ser copiado tal y como está, respetando mayúsculas, minúsculas y guiones.</p>
+                                <p><b>Nota:</b> Este código caduca en 15 minutos.</p>
                                 <hr style="margin: 20px 0;">
                                 <footer>
                                     <p>Odontología Carol - Cuidando de tu salud bucal</p>
@@ -246,7 +247,7 @@ router.post('/send-verification-email', (req, res) => {
         // Generar token
         const verificationToken = generateToken();
 
-        const tokenExpiration = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+        const tokenExpiration = new Date(Date.now() + 900000); // Expira en 15 minutos
 
         const sql = `
             INSERT INTO pacientes (email, token_verificacion, token_expiracion, verificado)
@@ -274,7 +275,8 @@ router.post('/send-verification-email', (req, res) => {
                             <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${verificationToken}</span>
                         </div>
                         <p>Ingresa este código en la página de verificación de tu cuenta.</p>
-                        <p><b>Nota:</b> Este código caduca en 10 minutos.</p>
+                        <p style="color: #d32f2f; font-weight: bold; font-size: 18px;">El token debe ser copiado tal y como está, respetando mayúsculas, minúsculas y guiones.</p>
+                        <p><b>Nota:</b> Este código caduca en 15 minutos.</p>
                         <hr style="margin: 20px 0;">
                         <footer>
                             <p>Odontología Carol - Cuidando de tu salud bucal</p>
