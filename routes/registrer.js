@@ -14,6 +14,8 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+
+
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
     const { nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, password } = req.body;
@@ -39,7 +41,7 @@ router.post('/register', async (req, res) => {
                     // Completa los datos faltantes
                     const updateSql = `UPDATE pacientes SET nombre = ?, aPaterno = ?, aMaterno = ?, edad = ?, genero = ?, lugar = ?, telefono = ?, alergias = ?, password = ?, registro_completo = 1 WHERE email = ?`;
                     const hashedPassword = await bcrypt.hash(password, 10);
-                    
+
                     db.query(updateSql, [nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, alergias, hashedPassword, email], (err, result) => {
                         if (err) {
                             return res.status(500).json({ message: 'Error al completar el registro.' });
@@ -66,6 +68,163 @@ router.post('/register', async (req, res) => {
     }
 });
 
+// Genera un token con formato de 12 caracteres, separados en grupos de 3 por guiones
+const generateToken = () => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 12; i++) {
+        token += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return `${token.slice(0, 3)}-${token.slice(3, 6)}-${token.slice(6, 9)}-${token.slice(9)}`;
+};
+
+
+// Endpoint para solicitar la recuperación de contraseña
+router.post('/recuperacion', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Verificar si el correo existe en la base de datos
+        const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
+        db.query(checkUserSql, [email], (err, result) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
+            }
+
+            if (result.length === 0) {
+                return res.status(404).json({ message: 'No existe una cuenta con este correo electrónico.' });
+            }
+
+            // Generar un token de recuperación utilizando el campo `token_verificacion`
+            const token = generateToken();
+            const tokenExpiration = new Date(Date.now() + 3600000); // Expira en 1 hora
+
+            // Actualizar la base de datos con el token de verificación y la expiración
+            const updateTokenSql = 'UPDATE pacientes SET token_verificacion = ?, token_expiracion = ? WHERE email = ?';
+            db.query(updateTokenSql, [token, tokenExpiration, email], (err, result) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al generar el token de recuperación.' });
+                }
+
+                // Enviar el correo con el enlace de recuperación
+                const resetUrl = `http://localhost:3000/reset-password?token=${token}`;
+                // Formatear el contenido HTML del correo de recuperación de contraseña
+                const mailOptions = {
+                    from: 'e_gr@hotmail.com',
+                    to: email,
+                    subject: 'Recuperación de Contraseña - Odontología Carol',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; color: #333;">
+                            <div style="text-align: center; padding: 20px;">
+                                <h1 style="color: #1976d2;">Odontología Carol</h1>
+                                <p>¡Hola!</p>
+                                <p>Hemos recibido una solicitud para restablecer tu contraseña en <b>Odontología Carol</b>.</p>
+                                <p>Si no realizaste esta solicitud, puedes ignorar este correo. De lo contrario, utiliza el siguiente código para restablecer tu contraseña:</p>
+                                <div style="padding: 10px; background-color: #f0f0f0; border-radius: 5px; display: inline-block; margin: 20px 0;">
+                                    <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${token}</span>
+                                </div>
+                                <p><b>Nota:</b> Este código caduca en 1 hora.</p>
+                                <hr style="margin: 20px 0;">
+                                <footer>
+                                    <p>Odontología Carol - Cuidando de tu salud bucal</p>
+                                    <p>Este es un correo generado automáticamente, por favor no respondas a este mensaje.</p>
+                                </footer>
+                            </div>
+                        </div>
+                        `,
+                };
+
+
+                transporter.sendMail(mailOptions, (err, info) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al enviar el correo de recuperación.' });
+                    }
+                    res.status(200).json({ message: 'Se ha enviado un enlace de recuperación a tu correo.' });
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Error en la recuperación de contraseña:', error);
+        res.status(500).json({ message: 'Error en el servidor. Inténtalo de nuevo más tarde.' });
+    }
+});
+
+// Endpoint para verificar el token de recuperación
+router.post('/verifyTokene', async (req, res) => {
+    const { token, email } = req.body;
+
+    try {
+        // Verificar si el token y el email coinciden en la base de datos
+        const verifyTokenSql = 'SELECT * FROM pacientes WHERE email = ? AND token_verificacion = ?';
+        db.query(verifyTokenSql, [email, token], (err, result) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error al verificar el token.' });
+            }
+
+            // Si no se encuentra el token o ha expirado
+            if (result.length === 0 || new Date() > new Date(result[0].token_expiracion)) {
+                return res.status(400).json({ message: 'Token no válido o ha expirado.' });
+            }
+
+            // El token es válido y no ha expirado, pero no lo eliminamos todavía
+            res.status(200).json({ message: 'Token verificado correctamente.' });
+        });
+    } catch (error) {
+        console.error('Error en la verificación del token:', error);
+        res.status(500).json({ message: 'Error en el servidor. Inténtalo de nuevo más tarde.' });
+    }
+});
+
+// Endpoint para cambiar la contraseña
+router.post('/resetPassword', async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    console.log("Token recibido:", token);
+    console.log("Nueva contraseña recibida:", newPassword);
+
+    try {
+        // Verificar si el token es válido
+        const verifyTokenSql = 'SELECT * FROM pacientes WHERE token_verificacion = ?';
+        db.query(verifyTokenSql, [token], async (err, result) => {
+            if (err) {
+                console.error("Error al verificar el token:", err);
+                return res.status(500).json({ message: 'Error al verificar el token.' });
+            }
+
+            if (result.length === 0) {
+                console.error("Token no encontrado en la base de datos.");
+                return res.status(400).json({ message: 'Token no válido.' });
+            }
+
+            console.log("Token encontrado, verificando expiración...");
+
+            if (new Date() > new Date(result[0].token_expiracion)) {
+                console.error("El token ha expirado.");
+                return res.status(400).json({ message: 'Token ha expirado.' });
+            }
+
+            console.log("Token válido y no ha expirado, actualizando la contraseña...");
+
+            // Encriptar la nueva contraseña
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+            // Actualizar la contraseña y limpiar el token
+            const updatePasswordSql = 'UPDATE pacientes SET password = ?, token_verificacion = NULL, token_expiracion = NULL WHERE token_verificacion = ?';
+            db.query(updatePasswordSql, [hashedPassword, token], (err, result) => {
+                if (err) {
+                    console.error("Error al actualizar la contraseña:", err);
+                    return res.status(500).json({ message: 'Error al actualizar la contraseña.' });
+                }
+                console.log("Contraseña actualizada correctamente.");
+                res.status(200).json({ message: 'Contraseña actualizada correctamente.' });
+            });
+        });
+    } catch (error) {
+        console.error('Error al cambiar la contraseña:', error);
+        res.status(500).json({ message: 'Error en el servidor. Inténtalo de nuevo más tarde.' });
+    }
+});
+
 
 // Ruta para enviar correo de verificación
 router.post('/send-verification-email', (req, res) => {
@@ -84,17 +243,6 @@ router.post('/send-verification-email', (req, res) => {
         if (result.length > 0) {
             return res.status(400).json({ message: 'El correo electrónico ya está registrado.' });
         }
-        // Generar un token que contenga letras mayúsculas, minúsculas y números
-        // Generar token que incluya letras mayúsculas, minúsculas y números
-        const generateToken = (length = 9) => {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let token = '';
-            for (let i = 0; i < length; i++) {
-                token += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return `${token.slice(0, 3)}-${token.slice(3, 6)}-${token.slice(6)}`;
-        };
-
         // Generar token
         const verificationToken = generateToken();
 

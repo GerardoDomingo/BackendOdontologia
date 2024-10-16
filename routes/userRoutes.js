@@ -7,8 +7,6 @@ const axios = require('axios');
 router.post('/login', async (req, res) => {
     const { email, password, captchaValue } = req.body;
 
-    console.log('Captcha Value received in backend:', captchaValue); 
-
     if (!captchaValue) {
         return res.status(400).json({ message: 'Captcha no completado.' });
     }
