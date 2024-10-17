@@ -5,9 +5,30 @@ const router = express.Router();
 
 // Configuración de multer para manejar la subida de archivos en memoria
 const storage = multer.memoryStorage(); 
-const upload = multer({ storage: storage });
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 1024 * 1024 * 10 }, // Límite de 10MB para archivos
+    fileFilter: (req, file, cb) => {
+        // Permitir archivos JPEG, JPG y PNG
+        if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg' || file.mimetype === 'image/png') {
+            cb(null, true);
+        } else {
+            cb(new Error('Solo se permiten archivos JPEG, JPG y PNG'), false);
+        }
+    },
+});
+
 // Endpoint para insertar el perfil de empresa
-router.post('/insert', upload.single('logo'), (req, res) => {
+router.post('/insert', (req, res, next) => {
+    upload.single('logo')(req, res, (err) => {
+        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send('El archivo es demasiado grande. El tamaño máximo permitido es de 10MB.');
+        } else if (err) {
+            return res.status(400).send(err.message);
+        }
+        next();
+    });
+}, (req, res) => {
     const { nombre_empresa, direccion, telefono, correo_electronico, descripcion } = req.body;
     const logo = req.file ? req.file.buffer : null;
 
@@ -49,7 +70,17 @@ router.get('/get', (req, res) => {
     });
 });
 
-router.put('/update', upload.single('logo'), (req, res) => {
+// Endpoint para actualizar el perfil de empresa
+router.put('/update', (req, res, next) => {
+    upload.single('logo')(req, res, (err) => {
+        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send('El archivo es demasiado grande. El tamaño máximo permitido es de 10MB.');
+        } else if (err) {
+            return res.status(400).send(err.message);
+        }
+        next();
+    });
+}, (req, res) => {
     const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion } = req.body;
     const logo = req.file ? req.file.buffer : null;
 
@@ -81,12 +112,11 @@ router.put('/update', upload.single('logo'), (req, res) => {
     });
 });
 
-
 // Endpoint para eliminar el perfil de empresa
 router.delete('/delete/:id', (req, res) => {
     const { id } = req.params;
 
-    const query = `DELETE FROM perfil_empresa WHERE id = ?`;
+    const query = `DELETE FROM perfil_empresa WHERE id_empresa = ?`;
     db.query(query, [id], (err, result) => {
         if (err) {
             console.log(err);
