@@ -302,27 +302,39 @@ router.post('/send-verification-email', (req, res) => {
 router.post('/verify-token', (req, res) => {
     const { token, email } = req.body;
 
+    // Consulta para verificar el token y el email
     const verifySql = 'SELECT * FROM pacientes WHERE email = ? AND token_verificacion = ?';
     db.query(verifySql, [email, token], (err, result) => {
         if (err) {
-            return res.status(500).json({ message: 'Error al verificar el token.' });
+            console.error('Error en la consulta de verificación del token:', err);  // Mostrar el error en la consola
+            return res.status(500).json({ message: 'Error en el servidor al verificar el token.' });
         }
 
-        if (result.length === 0 || new Date() > new Date(result[0].token_expiracion)) {
-            return res.status(400).json({ message: 'Token no válido o ha caducado.' });
+        if (result.length === 0) {
+            // Caso donde el token es incorrecto o no coincide con el email
+            return res.status(400).json({ message: 'Token incorrecto. Por favor verifica el token.' });
         }
 
-        // Actualizar como verificado
+        const tokenExpiration = new Date(result[0].token_expiracion);
+        if (new Date() > tokenExpiration) {
+            // Caso donde el token ha expirado
+            return res.status(400).json({ message: 'El token ha expirado. Solicita un nuevo token.' });
+        }
+
+        // Si todo está correcto, actualizar el estado de verificación del usuario
         const updateSql = 'UPDATE pacientes SET verificado = 1, token_verificacion = NULL, token_expiracion = NULL WHERE email = ?';
         db.query(updateSql, [email], (err, result) => {
             if (err) {
+                console.error('Error al actualizar el estado de verificación:', err);
                 return res.status(500).json({ message: 'Error al verificar el usuario.' });
             }
 
+            // Respuesta exitosa
             res.status(200).json({ message: 'Correo verificado correctamente. Ya puedes iniciar sesión.' });
         });
     });
 });
+
 
 
 
