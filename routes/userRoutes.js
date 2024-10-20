@@ -16,6 +16,7 @@ router.post('/login', async (req, res) => {
     }
 
     try {
+        // Verificar el CAPTCHA
         const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3oqpf6uYgEWy4A1k&response=${captchaValue}`;
         const captchaResponse = await axios.post(verifyUrl);
 
@@ -30,20 +31,21 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Por favor, proporciona ambos campos: correo electrónico y contraseña.' });
         }
 
-        // Intentamos buscar primero en la tabla de administradores
+        // Primero buscamos en la tabla de administradores
         const checkAdminSql = 'SELECT * FROM administradores WHERE email = ?';
         db.query(checkAdminSql, [email], async (err, resultAdmin) => {
             if (err) {
                 return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
             }
 
+            // Si el usuario es un administrador
             if (resultAdmin.length > 0) {
-                // Si el usuario es un administrador, procedemos con su autenticación
                 const administrador = resultAdmin[0];
+                console.log("Autenticando como administrador:", administrador.email);  // Agregar log para verificar
                 return autenticarUsuario(administrador, ipAddress, password, 'administrador', res);
             }
 
-            // Si no es administrador, intentamos buscar en la tabla de pacientes
+            // Si no es administrador, buscamos en la tabla de pacientes
             const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
             db.query(checkUserSql, [email], async (err, resultPaciente) => {
                 if (err) {
@@ -55,6 +57,7 @@ router.post('/login', async (req, res) => {
                 }
 
                 const paciente = resultPaciente[0];
+                console.log("Autenticando como paciente:", paciente.email);  // Agregar log para verificar
                 return autenticarUsuario(paciente, ipAddress, password, 'paciente', res);
             });
         });
@@ -66,9 +69,9 @@ router.post('/login', async (req, res) => {
 
 async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res) {
     const checkAttemptsSql = `
-            SELECT * FROM login_attempts
-    WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
-    ORDER BY fecha_hora DESC LIMIT 1
+        SELECT * FROM login_attempts
+        WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+        ORDER BY fecha_hora DESC LIMIT 1
     `;
     db.query(checkAttemptsSql, [usuario.id, ipAddress], async (err, attemptsResult) => {
         if (err) {
@@ -77,30 +80,29 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
         const lastAttempt = attemptsResult[0];
 
-        // Verificamos si el usuario ya ha sido bloqueado
+        // Verificar si el usuario está bloqueado
         if (lastAttempt && lastAttempt.fecha_bloqueo && new Date(lastAttempt.fecha_bloqueo) > new Date()) {
             return res.status(429).json({
                 message: `Tu cuenta está bloqueada hasta ${lastAttempt.fecha_bloqueo}. Inténtalo nuevamente después.`,
             });
         }
 
-        // Si el número de intentos es igual o mayor a MAX_ATTEMPTS y no ha pasado el bloqueo
+        // Si se alcanzó el límite de intentos fallidos
         if (lastAttempt && lastAttempt.intentos_fallidos >= MAX_ATTEMPTS) {
             let bloqueadoHasta = lastAttempt.fecha_bloqueo;
             if (!bloqueadoHasta || new Date(bloqueadoHasta) < new Date()) {
                 bloqueadoHasta = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
 
                 const updateLockSql = `
-                UPDATE login_attempts
-                SET fecha_bloqueo = ?
-                WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
-            `;
-            
-            db.query(updateLockSql, [bloqueadoHasta, usuario.id, ipAddress], (err) => {
-                if (err) {
-                    return res.status(500).json({ message: 'Error al actualizar la fecha de bloqueo.' });
-                }
-            });
+                    UPDATE login_attempts
+                    SET fecha_bloqueo = ?
+                    WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+                `;
+                db.query(updateLockSql, [bloqueadoHasta, usuario.id, ipAddress], (err) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al actualizar la fecha de bloqueo.' });
+                    }
+                });
             }
 
             return res.status(429).json({
@@ -121,10 +123,10 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
             if (lastAttempt) {
                 const updateAttemptSql = `
-                UPDATE login_attempts
-                SET intentos_fallidos = ?, fecha_bloqueo = ?
-                WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
-               `;
+                    UPDATE login_attempts
+                    SET intentos_fallidos = ?, fecha_bloqueo = ?
+                    WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+                `;
                 db.query(updateAttemptSql, [newFailedAttempts, newFechaBloqueo, usuario.id, ipAddress], (err) => {
                     if (err) {
                         return res.status(500).json({ message: 'Error al actualizar el intento fallido.' });
@@ -149,10 +151,9 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
             });
         }
 
-            const clearAttemptsSql = `
+        const clearAttemptsSql = `
             DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
         `;
-        
         db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
             if (err) {
                 return res.status(500).json({ message: 'Error al limpiar los intentos fallidos.' });
@@ -165,6 +166,5 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
         });
     });
 }
-
 
 module.exports = router;
