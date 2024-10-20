@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const router = express.Router();
@@ -330,8 +330,5 @@ router.post('/verify-token', (req, res) => {
         });
     });
 });
-
-
-
 
 module.exports = router;
