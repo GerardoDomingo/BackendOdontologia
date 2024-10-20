@@ -14,8 +14,6 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-
-
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
     const { nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, password } = req.body;
@@ -106,8 +104,6 @@ router.post('/recuperacion', async (req, res) => {
                     return res.status(500).json({ message: 'Error al generar el token de recuperación.' });
                 }
 
-                // Enviar el correo con el enlace de recuperación
-                const resetUrl = `http://localhost:3000/reset-password?token=${token}`;
                 // Formatear el contenido HTML del correo de recuperación de contraseña
                 const mailOptions = {
                     from: 'e_gr@hotmail.com',
@@ -258,7 +254,7 @@ router.post('/send-verification-email', (req, res) => {
                 return res.status(500).json({ message: 'Error al generar el token de verificación.' });
             }
 
-            const verificationLink = `http://localhost:3001/api/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+            const verificationLink = `https://backendodontologia.onrender.com/api/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
 
             // Formatear el contenido HTML del correo
             const mailOptions = {

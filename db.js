@@ -1,20 +1,25 @@
 const mysql = require('mysql2');
-//la configuracion a hostinguer es diferente 
-// Configuración de la conexión a la base de datos hola
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'odontologia_db'
+
+// Crear un pool de conexiones a MySQL (Hostinger)
+const pool = mysql.createPool({
+  host: '193.203.166.102',  // Cambia por el host correcto de tu servidor
+  user: 'u666156220_carol',
+  password: '20221058Emma',
+  database: 'u666156220_db_carol',
+  port: 3306,  // Asegúrate de usar el puerto correcto
+  waitForConnections: true,
+  connectionLimit: 10,  // Número máximo de conexiones simultáneas
+  queueLimit: 0
 });
 
-// Conectar a la base de datos
-db.connect(err => {
+// Verificar la conexión al crear el pool
+pool.getConnection((err, connection) => {
   if (err) {
-    console.log('Error connecting to the database', err);
+    console.error('Error conectando a la base de datos:', err.message);
     return;
   }
-  console.log('Connected to the MySQL database');
+  console.log('Conexión a MySQL exitosa');
+  connection.release();  // Liberar la conexión después de usarla
 });
 
-module.exports = db; // Exportamos la conexión para utilizarla en otros archivos
+module.exports = pool;  // Exportar el pool para usarlo en otros archivos
