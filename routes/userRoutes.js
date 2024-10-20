@@ -66,9 +66,9 @@ router.post('/login', async (req, res) => {
 
 async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res) {
     const checkAttemptsSql = `
-        SELECT * FROM login_attempts
-        WHERE ${tipoUsuario}_id = ? AND ip_address = ?
-        ORDER BY fecha_hora DESC LIMIT 1
+            SELECT * FROM login_attempts
+    WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+    ORDER BY fecha_hora DESC LIMIT 1
     `;
     db.query(checkAttemptsSql, [usuario.id, ipAddress], async (err, attemptsResult) => {
         if (err) {
@@ -91,15 +91,16 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
                 bloqueadoHasta = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
 
                 const updateLockSql = `
-                    UPDATE login_attempts
-                    SET fecha_bloqueo = ?
-                    WHERE ${tipoUsuario}_id = ? AND ip_address = ?
-                `;
-                db.query(updateLockSql, [bloqueadoHasta, usuario.id, ipAddress], (err) => {
-                    if (err) {
-                        return res.status(500).json({ message: 'Error al actualizar la fecha de bloqueo.' });
-                    }
-                });
+                UPDATE login_attempts
+                SET fecha_bloqueo = ?
+                WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+            `;
+            
+            db.query(updateLockSql, [bloqueadoHasta, usuario.id, ipAddress], (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al actualizar la fecha de bloqueo.' });
+                }
+            });
             }
 
             return res.status(429).json({
@@ -120,10 +121,10 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
             if (lastAttempt) {
                 const updateAttemptSql = `
-                    UPDATE login_attempts
-                    SET intentos_fallidos = ?, fecha_bloqueo = ?
-                    WHERE ${tipoUsuario}_id = ? AND ip_address = ?
-                `;
+                UPDATE login_attempts
+                SET intentos_fallidos = ?, fecha_bloqueo = ?
+                WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+               `;
                 db.query(updateAttemptSql, [newFailedAttempts, newFechaBloqueo, usuario.id, ipAddress], (err) => {
                     if (err) {
                         return res.status(500).json({ message: 'Error al actualizar el intento fallido.' });
@@ -131,7 +132,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
                 });
             } else {
                 const insertAttemptSql = `
-                    INSERT INTO login_attempts (${tipoUsuario}_id, ip_address, exitoso, intentos_fallidos, fecha_bloqueo)
+                    INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo)
                     VALUES (?, ?, 0, ?, ?)
                 `;
                 db.query(insertAttemptSql, [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo], (err) => {
@@ -148,9 +149,10 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
             });
         }
 
-        const clearAttemptsSql = `
-            DELETE FROM login_attempts WHERE ${tipoUsuario}_id = ? AND ip_address = ?
+            const clearAttemptsSql = `
+            DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
         `;
+        
         db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
             if (err) {
                 return res.status(500).json({ message: 'Error al limpiar los intentos fallidos.' });

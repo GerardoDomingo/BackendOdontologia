@@ -76,7 +76,6 @@ const generateToken = () => {
     return `${token.slice(0, 3)}-${token.slice(3, 6)}-${token.slice(6, 9)}-${token.slice(9)}`;
 };
 
-
 // Endpoint para solicitar la recuperación de contraseña
 router.post('/recuperacion', async (req, res) => {
     const { email } = req.body;
@@ -292,7 +291,6 @@ router.post('/send-verification-email', (req, res) => {
         });
     });
 });
-
 
 // Nueva ruta para verificar el token de forma manual
 router.post('/verify-token', (req, res) => {
