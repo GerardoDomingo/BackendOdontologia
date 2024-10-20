@@ -3,13 +3,30 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const axios = require('axios');
+const xss = require('xss');  // Protección contra XSS
+const { RateLimiterMemory } = require('rate-limiter-flexible');
+
+const rateLimiter = new RateLimiterMemory({
+    points: 10, 
+    duration: 3 * 60 * 60, 
+});
+
 
 const MAX_ATTEMPTS = 5; // Número máximo de intentos fallidos
 const LOCK_TIME_MINUTES = 20; // Tiempo de bloqueo en minutos
 
 router.post('/login', async (req, res) => {
-    const { email, password, captchaValue } = req.body;
+    const email = xss(req.body.email);  // Sanitizar input
+    const password = xss(req.body.password);  // Sanitizar input
+    const captchaValue = req.body.captchaValue;
     const ipAddress = req.ip;  // Capturamos la IP del cliente
+
+    // Limitar los intentos de inicio de sesión
+    try {
+        await rateLimiter.consume(ipAddress);
+    } catch {
+        return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
+    }
 
     if (!captchaValue) {
         return res.status(400).json({ message: 'Captcha no completado.' });
