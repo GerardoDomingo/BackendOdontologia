@@ -14,6 +14,7 @@ const politicasRoutes = require('./routes/politicasRoutes.js');
 const deslindeRoutes = require('./routes/deslindelegal.js');
 const terminosRoutes = require('./routes/terminosYcondicion.js');
 const perfil_empresa=require('./routes/perfilEmpresa.js');
+
 // Asignar las rutas a la aplicación
 app.use('/api', Registrer); // Rutas de registro
 app.use('/api/users', userRoutes); // Rutas de usuarios

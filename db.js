@@ -1,5 +1,5 @@
 const mysql = require('mysql2');
-
+//la configuracion a hostinguer es diferente 
 // Configuración de la conexión a la base de datos hola
 const db = mysql.createConnection({
   host: 'localhost',
