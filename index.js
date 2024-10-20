@@ -1,20 +1,30 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const cookieParser = require('cookie-parser');  // Importar cookie-parser
-const csrf = require('csurf');  // Importar csurf
+const csurf = require('csurf');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// Configuración de middlewares
-app.use(cors());
+// Configuración de CORS
+const corsOptions = {
+    origin: 'https://odontologiacarol.onrender.com',  // Dominio de tu frontend
+    credentials: true,  // Permitir cookies y credenciales entre frontend y backend
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Métodos permitidos
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],  // Headers permitidos
+};
+
+// Aplicar middleware de CORS
+app.use(cors(corsOptions));
+
+// Configuración de middlewares adicionales
 app.use(bodyParser.json());
-app.use(cookieParser());  // Usar cookie-parser
+app.use(cookieParser());
 
-// Configurar middleware CSRF
-const csrfProtection = csrf({ cookie: true });
+// Configurar middleware CSRF con protección a nivel de cookie
+const csrfProtection = csurf({ cookie: true });
 
-// Ruta para obtener el token CSRF y enviarlo al cliente
+// Ruta para obtener el token CSRF
 app.get('/api/csrf-token', csrfProtection, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
@@ -35,9 +45,9 @@ app.use('/api/deslinde', deslindeRoutes); // Rutas de deslinde legal
 app.use('/api/termiCondicion', terminosRoutes); // Rutas de términos y condiciones
 app.use('/api/perfilEmpresa', perfil_empresa);
 
-// Proteger las rutas POST sensibles con CSRF
+// Aplicar protección CSRF en todas las rutas POST sensibles (por ejemplo, el login)
 app.post('/api/users/login', csrfProtection, (req, res, next) => {
-  next();  // A partir de aquí se usará tu lógica de login (ver abajo)
+  next();  // A partir de aquí se usará tu lógica de login (ver tu archivo de rutas)
 });
 
 // Iniciar el servidor
