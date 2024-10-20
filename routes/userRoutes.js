@@ -5,17 +5,22 @@ const db = require('../db');
 const axios = require('axios');
 const xss = require('xss');  // Protección contra XSS
 const { RateLimiterMemory } = require('rate-limiter-flexible');
+const csrf = require('csurf');  // Protección CSRF
 
+// Límite de intentos por IP
 const rateLimiter = new RateLimiterMemory({
     points: 10, 
     duration: 3 * 60 * 60, 
 });
 
+// Número máximo de intentos fallidos
+const MAX_ATTEMPTS = 5;
+const LOCK_TIME_MINUTES = 20; 
 
-const MAX_ATTEMPTS = 5; // Número máximo de intentos fallidos
-const LOCK_TIME_MINUTES = 20; // Tiempo de bloqueo en minutos
+// Middleware de CSRF
+const csrfProtection = csrf({ cookie: true });
 
-router.post('/login', async (req, res) => {
+router.post('/login', csrfProtection, async (req, res) => {  // Añadimos csrfProtection aquí
     const email = xss(req.body.email);  // Sanitizar input
     const password = xss(req.body.password);  // Sanitizar input
     const captchaValue = req.body.captchaValue;
@@ -34,7 +39,7 @@ router.post('/login', async (req, res) => {
 
     try {
         // Verificar el CAPTCHA
-        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3oqpf6uYgEWy4A1k&response=${captchaValue}`;
+        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=SECRET_KEY&response=${captchaValue}`;
         const captchaResponse = await axios.post(verifyUrl);
 
         if (!captchaResponse.data.success) {
@@ -58,7 +63,6 @@ router.post('/login', async (req, res) => {
             // Si el usuario es un administrador
             if (resultAdmin.length > 0) {
                 const administrador = resultAdmin[0];
-                console.log("Autenticando como administrador:", administrador.email);  // Agregar log para verificar
                 return autenticarUsuario(administrador, ipAddress, password, 'administrador', res);
             }
 
@@ -74,7 +78,6 @@ router.post('/login', async (req, res) => {
                 }
 
                 const paciente = resultPaciente[0];
-                console.log("Autenticando como paciente:", paciente.email);  // Agregar log para verificar
                 return autenticarUsuario(paciente, ipAddress, password, 'paciente', res);
             });
         });
