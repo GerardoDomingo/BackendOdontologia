@@ -221,7 +221,6 @@ router.post('/resetPassword', async (req, res) => {
     }
 });
 
-
 // Ruta para enviar correo de verificación
 router.post('/send-verification-email', (req, res) => {
     const { email } = req.body;
