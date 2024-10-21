@@ -3,83 +3,90 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const axios = require('axios');
-const xss = require('xss'); 
+const xss = require('xss');
 const { RateLimiterMemory } = require('rate-limiter-flexible');
+const logger = require('../utils/logger');
+
 //Protección contra ataques de fuerza bruta
 const rateLimiter = new RateLimiterMemory({
-    points: 10, 
-    duration: 3 * 60 * 60, 
+    points: 10,
+    duration: 3 * 60 * 60,
 });
 
-const MAX_ATTEMPTS = 5; 
+const MAX_ATTEMPTS = 5;
 const LOCK_TIME_MINUTES = 20;
 
 router.post('/login', async (req, res) => {
-    const email = xss(req.body.email);  // Sanitizar input
-    const password = xss(req.body.password);  // Sanitizar input
-    const captchaValue = req.body.captchaValue;
-    const ipAddress = req.ip; 
-
-    // Limitar los intentos de inicio de sesión
     try {
-        await rateLimiter.consume(ipAddress);
-    } catch {
-        return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
-    }
+        const email = xss(req.body.email);  // Sanitizar input
+        const password = xss(req.body.password);  // Sanitizar input
+        const captchaValue = req.body.captchaValue;
+        const ipAddress = req.ip;
 
-    if (!captchaValue) {
-        return res.status(400).json({ message: 'Captcha no completado.' });
-    }
-
-    try {
-        // Verificar el CAPTCHA
-        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3oqpf6uYgEWy4A1k&response=${captchaValue}`;
-        const captchaResponse = await axios.post(verifyUrl);
-
-        if (!captchaResponse.data.success) {
-            return res.status(400).json({
-                message: 'Captcha inválido. Por favor, inténtalo de nuevo.',
-                'error-codes': captchaResponse.data['error-codes'] || [],
-            });
+        // Limitar los intentos de inicio de sesión
+        try {
+            await rateLimiter.consume(ipAddress);
+        } catch {
+            return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
         }
 
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Por favor, proporciona ambos campos: correo electrónico y contraseña.' });
+        if (!captchaValue) {
+            return res.status(400).json({ message: 'Captcha no completado.' });
         }
 
-        // Primero buscamos en la tabla de administradores
-        const checkAdminSql = 'SELECT * FROM administradores WHERE email = ?';
-        db.query(checkAdminSql, [email], async (err, resultAdmin) => {
-            if (err) {
-                return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
+        try {
+            // Verificar el CAPTCHA
+            const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3oqpf6uYgEWy4A1k&response=${captchaValue}`;
+            const captchaResponse = await axios.post(verifyUrl);
+
+            if (!captchaResponse.data.success) {
+                return res.status(400).json({
+                    message: 'Captcha inválido. Por favor, inténtalo de nuevo.',
+                    'error-codes': captchaResponse.data['error-codes'] || [],
+                });
             }
 
-            // Si el usuario es un administrador
-            if (resultAdmin.length > 0) {
-                const administrador = resultAdmin[0];
-                console.log("Autenticando como administrador:", administrador.email);  // Agregar log para verificar
-                return autenticarUsuario(administrador, ipAddress, password, 'administrador', res);
+            if (!email || !password) {
+                return res.status(400).json({ message: 'Por favor, proporciona ambos campos: correo electrónico y contraseña.' });
             }
 
-            // Si no es administrador, buscamos en la tabla de pacientes
-            const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
-            db.query(checkUserSql, [email], async (err, resultPaciente) => {
+            // Primero buscamos en la tabla de administradores
+            const checkAdminSql = 'SELECT * FROM administradores WHERE email = ?';
+            db.query(checkAdminSql, [email], async (err, resultAdmin) => {
                 if (err) {
                     return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
                 }
 
-                if (resultPaciente.length === 0) {
-                    return res.status(404).json({ message: 'Correo no registrado.' });
+                // Si el usuario es un administrador
+                if (resultAdmin.length > 0) {
+                    const administrador = resultAdmin[0];
+                    console.log("Autenticando como administrador:", administrador.email);  // Agregar log para verificar
+                    return autenticarUsuario(administrador, ipAddress, password, 'administrador', res);
                 }
 
-                const paciente = resultPaciente[0];
-                console.log("Autenticando como paciente:", paciente.email);  // Agregar log para verificar
-                return autenticarUsuario(paciente, ipAddress, password, 'paciente', res);
+                // Si no es administrador, buscamos en la tabla de pacientes
+                const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
+                db.query(checkUserSql, [email], async (err, resultPaciente) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
+                    }
+
+                    if (resultPaciente.length === 0) {
+                        return res.status(404).json({ message: 'Correo no registrado.' });
+                    }
+
+                    const paciente = resultPaciente[0];
+                    console.log("Autenticando como paciente:", paciente.email);  // Agregar log para verificar
+                    return autenticarUsuario(paciente, ipAddress, password, 'paciente', res);
+                });
             });
-        });
+        } catch (error) {
+            console.error('Error en la verificación del captcha o en la autenticación:', error);
+            return res.status(500).json({ message: 'Error en la verificación del captcha o en la autenticación.' });
+        }
     } catch (error) {
-        console.error('Error en la verificación del captcha o en la autenticación:', error);
-        return res.status(500).json({ message: 'Error en la verificación del captcha o en la autenticación.' });
+        logger.error(`Error en /login: ${error.message}`);
+        res.status(500).json({ message: 'Error en el servidor' });
     }
 });
 

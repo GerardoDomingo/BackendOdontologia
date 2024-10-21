@@ -7,6 +7,7 @@ const xss = require('xss');
 const { RateLimiterMemory } = require('rate-limiter-flexible');
 const cron = require('node-cron');
 const router = express.Router();
+const logger = require('../utils/logger'); 
 
 // Configuración del limitador para ataques de fuerza bruta
 const rateLimiter = new RateLimiterMemory({
@@ -47,67 +48,75 @@ cron.schedule('*/10 * * * *', () => {
 
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
-    // Sanitizar todas las entradas del usuario usando XSS
-    const nombre = xss(req.body.nombre);
-    const aPaterno = xss(req.body.aPaterno);
-    const aMaterno = xss(req.body.aMaterno);
-    const edad = xss(req.body.edad);
-    const genero = xss(req.body.genero);
-    const lugar = xss(req.body.lugar);
-    const telefono = xss(req.body.telefono);
-    const email = xss(req.body.email);
-    const alergias = xss(req.body.alergias);
-    const password = xss(req.body.password);
-
-    if (!nombre || !aPaterno || !aMaterno || !edad || !genero || !lugar || !telefono || !email || !password) {
-        return res.status(400).json({ message: 'Todos los campos son obligatorios' });
-    }
-
-    const ipAddress = req.ip;  // Obtener la dirección IP para limitar intentos
-
     try {
-        await rateLimiter.consume(ipAddress);
+        logger.info('Intento de registro de usuario.');
 
-        const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
-        db.query(checkUserSql, [email], async (err, result) => {
-            if (err) {
-                return res.status(500).json({ message: 'Error al verificar el correo electrónico' });
-            }
+        // Sanitizar todas las entradas del usuario usando XSS
+        const nombre = xss(req.body.nombre);
+        const aPaterno = xss(req.body.aPaterno);
+        const aMaterno = xss(req.body.aMaterno);
+        const edad = xss(req.body.edad);
+        const genero = xss(req.body.genero);
+        const lugar = xss(req.body.lugar);
+        const telefono = xss(req.body.telefono);
+        const email = xss(req.body.email);
+        const alergias = xss(req.body.alergias);
+        const password = xss(req.body.password);
 
-            if (result.length > 0) {
-                const paciente = result[0];
-                if (paciente.registro_completo === 1) {
-                    return res.status(400).json({ message: 'El correo electrónico ya está registrado y el registro está completo.' });
+        if (!nombre || !aPaterno || !aMaterno || !edad || !genero || !lugar || !telefono || !email || !password) {
+            return res.status(400).json({ message: 'Todos los campos son obligatorios' });
+        }
+
+        const ipAddress = req.ip;  // Obtener la dirección IP para limitar intentos
+
+        try {
+            await rateLimiter.consume(ipAddress);
+
+            const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
+            db.query(checkUserSql, [email], async (err, result) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al verificar el correo electrónico' });
+                }
+
+                if (result.length > 0) {
+                    const paciente = result[0];
+                    if (paciente.registro_completo === 1) {
+                        return res.status(400).json({ message: 'El correo electrónico ya está registrado y el registro está completo.' });
+                    } else {
+                        // Si el correo ya existe pero no ha completado el registro
+                        const updateSql = `UPDATE pacientes SET nombre = ?, aPaterno = ?, aMaterno = ?, edad = ?, genero = ?, lugar = ?, telefono = ?, alergias = ?, password = ?, registro_completo = 1 WHERE email = ?`;
+                        const hashedPassword = await bcrypt.hash(password, 10);
+
+                        db.query(updateSql, [nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, alergias, hashedPassword, email], (err, result) => {
+                            if (err) {
+                                return res.status(500).json({ message: 'Error al completar el registro.' });
+                            }
+                            return res.status(200).json({ message: 'Registro completado correctamente.' });
+                        });
+                    }
                 } else {
-                    // Si el correo ya existe pero no ha completado el registro
-                    const updateSql = `UPDATE pacientes SET nombre = ?, aPaterno = ?, aMaterno = ?, edad = ?, genero = ?, lugar = ?, telefono = ?, alergias = ?, password = ?, registro_completo = 1 WHERE email = ?`;
-                    const hashedPassword = await bcrypt.hash(password, 10);
+                    // Nuevo registro
+                    const saltRounds = 10;
+                    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-                    db.query(updateSql, [nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, alergias, hashedPassword, email], (err, result) => {
+                    const insertSql = `INSERT INTO pacientes (nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, password, registro_completo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+                    db.query(insertSql, [nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, hashedPassword], (err, result) => {
                         if (err) {
-                            return res.status(500).json({ message: 'Error al completar el registro.' });
+                            return res.status(500).json({ message: 'Error al registrar el paciente.' });
                         }
-                        return res.status(200).json({ message: 'Registro completado correctamente.' });
+                        return res.status(201).json({ message: 'Paciente registrado correctamente.' });
                     });
                 }
-            } else {
-                // Nuevo registro
-                const saltRounds = 10;
-                const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-                const insertSql = `INSERT INTO pacientes (nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, password, registro_completo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
-                db.query(insertSql, [nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, hashedPassword], (err, result) => {
-                    if (err) {
-                        return res.status(500).json({ message: 'Error al registrar el paciente.' });
-                    }
-                    return res.status(201).json({ message: 'Paciente registrado correctamente.' });
-                });
-            }
-        });
-    } catch (rateLimiterError) {
-        return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
+            });
+        } catch (rateLimiterError) {
+            return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
+        }
+    } catch (error) {
+        logger.error(`Error en /register: ${error.message}`);
+        res.status(500).json({ message: 'Error en el servidor' });
     }
 });
+
 
 // Genera un token con formato de 12 caracteres, separados en grupos de 3 por guiones
 const generateToken = () => {
