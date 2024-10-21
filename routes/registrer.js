@@ -99,7 +99,18 @@ const generateToken = () => {
 router.post('/recuperacion', async (req, res) => {
     const { email } = req.body;
 
+    // Limitar solicitudes de recuperación por dirección IP
+    const ipAddress = req.ip;
+
     try {
+        // Limitar los intentos de recuperación de contraseña desde la misma IP
+        await rateLimiter.consume(ipAddress);
+
+        // Validar formato de correo electrónico
+        if (!validateEmail(email)) {
+            return res.status(400).json({ message: 'Formato de correo inválido.' });
+        }
+
         // Verificar si el correo existe en la base de datos
         const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
         db.query(checkUserSql, [xss(email)], (err, result) => {
@@ -111,7 +122,7 @@ router.post('/recuperacion', async (req, res) => {
                 return res.status(404).json({ message: 'No existe una cuenta con este correo electrónico.' });
             }
 
-            // Generar un token de recuperación utilizando el campo `token_verificacion`
+            // Generar un token de recuperación utilizando el campo token_verificacion
             const token = generateToken();
             const tokenExpiration = new Date(Date.now() + 900000); // Expira en 15 minutos
 
@@ -146,9 +157,8 @@ router.post('/recuperacion', async (req, res) => {
                                 </footer>
                             </div>
                         </div>
-                        `,
+                    `,
                 };
-
 
                 transporter.sendMail(mailOptions, (err, info) => {
                     if (err) {
@@ -158,11 +168,17 @@ router.post('/recuperacion', async (req, res) => {
                 });
             });
         });
-    } catch (error) {
-        console.error('Error en la recuperación de contraseña:', error);
-        res.status(500).json({ message: 'Error en el servidor. Inténtalo de nuevo más tarde.' });
+    } catch (rateLimiterError) {
+        // Mensaje para indicar demasiados intentos
+        return res.status(429).json({ message: 'Demasiados intentos. Inténtalo más tarde.' });
     }
 });
+
+// Validar formato del correo electrónico
+function validateEmail(email) {
+    const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@(([^<>()[\]\\.,;:\s@"]+\.)+[^<>()[\]\\.,;:\s@"]{2,})$/i;
+    return re.test(String(email).toLowerCase());
+}
 
 // Endpoint para verificar el token de recuperación
 router.post('/verifyTokene', async (req, res) => {
