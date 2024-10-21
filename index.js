@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
 const helmet = require('helmet');  // Usa helmet para manejar las cabeceras de seguridad
+const logger = require('./utils/logger'); 
 
 // Configurar las políticas de seguridad de contenido (CSP) con Helmet
 app.use(
@@ -40,5 +41,6 @@ app.use('/api/perfilEmpresa', perfil_empresa);
 
 // Iniciar el servidor
 app.listen(3001, () => {
+  logger.info('Servidor iniciado en el puerto 3001'); 
   console.log('Servidor corriendo en puerto 3001');
 });
