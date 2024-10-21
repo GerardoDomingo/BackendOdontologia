@@ -21,6 +21,29 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+// Función para eliminar registros incompletos después de 10 minutos
+const eliminarRegistrosIncompletos = () => {
+    const sql = `
+      DELETE FROM pacientes 
+      WHERE registro_completo = 0 
+      AND TIMESTAMPDIFF(MINUTE, fecha_creacion, NOW()) > 10
+    `;
+
+    db.query(sql, (err, result) => {
+        if (err) {
+            console.error('Error al eliminar registros incompletos:', err);
+        } else {
+            console.log(`${result.affectedRows} registros incompletos eliminados.`);
+        }
+    });
+};
+
+// Configuración del cron job para ejecutar la limpieza cada 10 minutos
+cron.schedule('*/10 * * * *', () => {
+    console.log('Ejecutando limpieza de registros incompletos...');
+    eliminarRegistrosIncompletos();
+});
+
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
     // Sanitizar todas las entradas del usuario usando XSS
@@ -169,7 +192,6 @@ router.post('/recuperacion', async (req, res) => {
             });
         });
     } catch (rateLimiterError) {
-        // Mensaje para indicar demasiados intentos
         return res.status(429).json({ message: 'Demasiados intentos. Inténtalo más tarde.' });
     }
 });
@@ -360,5 +382,6 @@ router.post('/verify-token', (req, res) => {
         });
     });
 });
+
 
 module.exports = router;
