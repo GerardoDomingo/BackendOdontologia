@@ -2,6 +2,21 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
+const helmet = require('helmet');  // Usa helmet para manejar las cabeceras de seguridad
+
+// Configurar las políticas de seguridad de contenido (CSP) con Helmet
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://www.google.com", "https://www.gstatic.com"],
+        frameSrc: ["'self'", "https://www.google.com", "https://www.recaptcha.net"],
+        imgSrc: ["'self'", "https://www.google.com", "https://www.gstatic.com"],
+      },
+    },
+  })
+);
 
 // Configuración de middlewares
 app.use(cors());
