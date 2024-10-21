@@ -3,8 +3,15 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const xss = require('xss');
+const { RateLimiterMemory } = require('rate-limiter-flexible');
 const router = express.Router();
 
+// Configuración del limitador para ataques de fuerza bruta
+const rateLimiter = new RateLimiterMemory({
+    points: 10,
+    duration: 3 * 60 * 60,
+});
 // Configuración de nodemailer
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -16,13 +23,27 @@ const transporter = nodemailer.createTransport({
 
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
-    const { nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, password } = req.body;
+    // Sanitizar todas las entradas del usuario usando XSS
+    const nombre = xss(req.body.nombre);
+    const aPaterno = xss(req.body.aPaterno);
+    const aMaterno = xss(req.body.aMaterno);
+    const edad = xss(req.body.edad);
+    const genero = xss(req.body.genero);
+    const lugar = xss(req.body.lugar);
+    const telefono = xss(req.body.telefono);
+    const email = xss(req.body.email);
+    const alergias = xss(req.body.alergias);
+    const password = xss(req.body.password);
 
     if (!nombre || !aPaterno || !aMaterno || !edad || !genero || !lugar || !telefono || !email || !password) {
         return res.status(400).json({ message: 'Todos los campos son obligatorios' });
     }
 
+    const ipAddress = req.ip;  // Obtener la dirección IP para limitar intentos
+
     try {
+        await rateLimiter.consume(ipAddress);
+
         const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
         db.query(checkUserSql, [email], async (err, result) => {
             if (err) {
@@ -32,11 +53,9 @@ router.post('/register', async (req, res) => {
             if (result.length > 0) {
                 const paciente = result[0];
                 if (paciente.registro_completo === 1) {
-                    // Si el registro ya está completo
                     return res.status(400).json({ message: 'El correo electrónico ya está registrado y el registro está completo.' });
                 } else {
                     // Si el correo ya existe pero no ha completado el registro
-                    // Completa los datos faltantes
                     const updateSql = `UPDATE pacientes SET nombre = ?, aPaterno = ?, aMaterno = ?, edad = ?, genero = ?, lugar = ?, telefono = ?, alergias = ?, password = ?, registro_completo = 1 WHERE email = ?`;
                     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -61,8 +80,8 @@ router.post('/register', async (req, res) => {
                 });
             }
         });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error en el registro' });
+    } catch (rateLimiterError) {
+        return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
     }
 });
 
@@ -83,7 +102,7 @@ router.post('/recuperacion', async (req, res) => {
     try {
         // Verificar si el correo existe en la base de datos
         const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
-        db.query(checkUserSql, [email], (err, result) => {
+        db.query(checkUserSql, [xss(email)], (err, result) => {
             if (err) {
                 return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
             }
@@ -152,7 +171,7 @@ router.post('/verifyTokene', async (req, res) => {
     try {
         // Verificar si el token y el email coinciden en la base de datos
         const verifyTokenSql = 'SELECT * FROM pacientes WHERE email = ? AND token_verificacion = ?';
-        db.query(verifyTokenSql, [email, token], (err, result) => {
+        db.query(verifyTokenSql, [xss(email), xss(token)], (err, result) => {
             if (err) {
                 return res.status(500).json({ message: 'Error al verificar el token.' });
             }
@@ -181,7 +200,7 @@ router.post('/resetPassword', async (req, res) => {
     try {
         // Verificar si el token es válido
         const verifyTokenSql = 'SELECT * FROM pacientes WHERE token_verificacion = ?';
-        db.query(verifyTokenSql, [token], async (err, result) => {
+        db.query(verifyTokenSql, [xss(token)], async (err, result) => {
             if (err) {
                 console.error("Error al verificar el token:", err);
                 return res.status(500).json({ message: 'Error al verificar el token.' });
@@ -202,7 +221,7 @@ router.post('/resetPassword', async (req, res) => {
             console.log("Token válido y no ha expirado, actualizando la contraseña...");
 
             // Encriptar la nueva contraseña
-            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            const hashedPassword = await bcrypt.hash(xss(newPassword), 10);
 
             // Actualizar la contraseña y limpiar el token
             const updatePasswordSql = 'UPDATE pacientes SET password = ?, token_verificacion = NULL, token_expiracion = NULL WHERE token_verificacion = ?';
@@ -226,7 +245,7 @@ router.post('/send-verification-email', (req, res) => {
     const { email } = req.body;
 
     const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
-    db.query(checkUserSql, [email], (err, result) => {
+    db.query(checkUserSql, [xss(email)], (err, result) => {
         if (err) {
             return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
         }
@@ -251,8 +270,6 @@ router.post('/send-verification-email', (req, res) => {
             if (err) {
                 return res.status(500).json({ message: 'Error al generar el token de verificación.' });
             }
-
-            const verificationLink = `https://backendodontologia.onrender.com/api/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
 
             // Formatear el contenido HTML del correo
             const mailOptions = {
