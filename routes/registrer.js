@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const xss = require('xss');
 const { RateLimiterMemory } = require('rate-limiter-flexible');
+const cron = require('node-cron');
 const router = express.Router();
 
 // Configuración del limitador para ataques de fuerza bruta
