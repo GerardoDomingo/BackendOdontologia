@@ -8,11 +8,12 @@ const app = express();
 //trozon
 // Configuración de CORS
 const corsOptions = {
-    origin: 'https://odontologiacarol.onrender.com',  // Dominio de tu frontend
-    credentials: true,  // Permitir cookies y credenciales entre frontend y backend
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Métodos permitidos
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],  // Headers permitidos
+  origin: true,  // Permitir cualquier origen temporalmente
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 };
+
 
 // Aplicar middleware de CORS
 app.use(cors(corsOptions));
