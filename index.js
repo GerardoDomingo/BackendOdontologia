@@ -5,7 +5,7 @@ const csurf = require('csurf');
 const cookieParser = require('cookie-parser');
 
 const app = express();
-
+//trozon
 // Configuración de CORS
 const corsOptions = {
     origin: 'https://odontologiacarol.onrender.com',  // Dominio de tu frontend
