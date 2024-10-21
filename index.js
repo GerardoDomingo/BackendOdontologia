@@ -23,9 +23,12 @@ app.use(
 
 // Configuración de middlewares de seguridad
 app.use(cors({
-  origin: 'https://odontologiacarol.onrender.com', // Cambia esto al dominio de tu frontend
-  credentials: true // Permitir envío de cookies y encabezados de sesión
+  origin: (origin, callback) => {
+    callback(null, true);
+  },
+  credentials: true // Permitir el envío de cookies y encabezados de sesión
 }));
+
 app.use(bodyParser.json());
 app.use(cookieParser());  // Usamos cookies para manejar el token CSRF
 
