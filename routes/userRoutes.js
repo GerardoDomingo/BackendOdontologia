@@ -14,7 +14,7 @@ const rateLimiter = new RateLimiterMemory({
 const MAX_ATTEMPTS = 5; 
 const LOCK_TIME_MINUTES = 20;
 
-router.post('/login', csrfProtection, async (req, res) => {
+router.post('/login', async (req, res) => {
     const email = xss(req.body.email);  // Sanitizar input
     const password = xss(req.body.password);  // Sanitizar input
     const captchaValue = req.body.captchaValue;
