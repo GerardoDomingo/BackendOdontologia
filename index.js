@@ -3,7 +3,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
 const helmet = require('helmet');  // Usa helmet para manejar las cabeceras de seguridad
-const logger = require('./utils/logger');
 
 // Configurar las políticas de seguridad de contenido (CSP) con Helmet
 app.use(
@@ -30,14 +29,16 @@ const politicasRoutes = require('./routes/politicasRoutes.js');
 const deslindeRoutes = require('./routes/deslindelegal.js');
 const terminosRoutes = require('./routes/terminosYcondicion.js');
 const perfil_empresa=require('./routes/perfilEmpresa.js');
+const reportes=require('./routes/reportes.js')
 
 // Asignar las rutas a la aplicaciónes
-app.use('/api', Registrer); // Rutas de registro
-app.use('/api/users', userRoutes); // Rutas de usuarios
-app.use('/api/politicas', politicasRoutes); // Rutas de políticas
-app.use('/api/deslinde', deslindeRoutes); // Rutas de deslinde legal
-app.use('/api/termiCondicion', terminosRoutes); // Rutas de términos y condiciones
+app.use('/api', Registrer);
+app.use('/api/users', userRoutes); 
+app.use('/api/politicas', politicasRoutes);
+app.use('/api/deslinde', deslindeRoutes); 
+app.use('/api/termiCondicion', terminosRoutes); 
 app.use('/api/perfilEmpresa', perfil_empresa);
+app.use('/api/reportes',reportes);
 
 // Iniciar el servidor
 app.listen(3001, () => {
