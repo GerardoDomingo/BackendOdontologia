@@ -27,10 +27,12 @@ router.post('/login', async (req, res) => {
         try {
             await rateLimiter.consume(ipAddress);
         } catch {
+            logger.error(`Demasiados intentos de inicio de sesión desde la IP: ${ipAddress}`);  // Registrar en log
             return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
         }
 
         if (!captchaValue) {
+            logger.warn(`Intento fallido sin captcha en la IP: ${ipAddress}`);
             return res.status(400).json({ message: 'Captcha no completado.' });
         }
 
@@ -40,6 +42,7 @@ router.post('/login', async (req, res) => {
             const captchaResponse = await axios.post(verifyUrl);
 
             if (!captchaResponse.data.success) {
+                logger.warn(`Captcha fallido en la IP: ${ipAddress}`);
                 return res.status(400).json({
                     message: 'Captcha inválido. Por favor, inténtalo de nuevo.',
                     'error-codes': captchaResponse.data['error-codes'] || [],
@@ -47,6 +50,7 @@ router.post('/login', async (req, res) => {
             }
 
             if (!email || !password) {
+                logger.warn(`Intento de inicio de sesión fallido (faltan campos) desde la IP: ${ipAddress}`);
                 return res.status(400).json({ message: 'Por favor, proporciona ambos campos: correo electrónico y contraseña.' });
             }
 
@@ -54,34 +58,35 @@ router.post('/login', async (req, res) => {
             const checkAdminSql = 'SELECT * FROM administradores WHERE email = ?';
             db.query(checkAdminSql, [email], async (err, resultAdmin) => {
                 if (err) {
+                    logger.error(`Error al verificar el correo electrónico: ${err.message}`);
                     return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
                 }
 
-                // Si el usuario es un administrador
                 if (resultAdmin.length > 0) {
                     const administrador = resultAdmin[0];
-                    console.log("Autenticando como administrador:", administrador.email);  // Agregar log para verificar
+                    logger.info(`Inicio de sesión como administrador: ${administrador.email}`);  // Registrar en log
                     return autenticarUsuario(administrador, ipAddress, password, 'administrador', res);
                 }
 
-                // Si no es administrador, buscamos en la tabla de pacientes
                 const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
                 db.query(checkUserSql, [email], async (err, resultPaciente) => {
                     if (err) {
+                        logger.error(`Error al verificar el correo electrónico del paciente: ${err.message}`);
                         return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
                     }
 
                     if (resultPaciente.length === 0) {
+                        logger.warn(`Correo no registrado: ${email} desde la IP: ${ipAddress}`);
                         return res.status(404).json({ message: 'Correo no registrado.' });
                     }
 
                     const paciente = resultPaciente[0];
-                    console.log("Autenticando como paciente:", paciente.email);  // Agregar log para verificar
+                    logger.info(`Inicio de sesión como paciente: ${paciente.email}`);  // Registrar en log
                     return autenticarUsuario(paciente, ipAddress, password, 'paciente', res);
                 });
             });
         } catch (error) {
-            console.error('Error en la verificación del captcha o en la autenticación:', error);
+            logger.error(`Error en la verificación del captcha o en la autenticación: ${error.message}`);
             return res.status(500).json({ message: 'Error en la verificación del captcha o en la autenticación.' });
         }
     } catch (error) {

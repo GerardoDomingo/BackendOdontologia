@@ -1,6 +1,15 @@
 const { createLogger, format, transports } = require('winston');
 const path = require('path');
+const fs = require('fs');
 const { combine, timestamp, printf } = format;
+
+// Ruta de la carpeta de logs
+const logDir = path.join(__dirname, '../logs');
+
+// Crear la carpeta 'logs' si no existe
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir);
+}
 
 // Formato para los logs
 const logFormat = printf(({ level, message, timestamp }) => {
@@ -8,20 +17,20 @@ const logFormat = printf(({ level, message, timestamp }) => {
 });
 
 const logger = createLogger({
-  level: 'info',
+  level: 'info',  // Nivel de logging, puedes cambiarlo según necesidad
   format: combine(
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    logFormat
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),  // Formato de la fecha y hora
+    logFormat  // Formato del mensaje
   ),
   transports: [
-    // Para registrar los errores en error.log dentro de utils/logs
+    // Para registrar los errores en error.log
     new transports.File({
-      filename: path.join(__dirname, './logs/error.log'),  // Se ajusta la ruta
-      level: 'error'
+      filename: path.join(logDir, 'error.log'),  // Usa la ruta correcta con 'logDir'
+      level: 'error',  // Solo registra errores en este archivo
     }),
-    // Para registrar todos los logs (info, warn, error, etc.) en combined.log dentro de utils/logs
+    // Para registrar todos los logs (info, warn, error, etc.) en combined.log
     new transports.File({
-      filename: path.join(__dirname, './logs/combined.log')  // Se ajusta la ruta
+      filename: path.join(logDir, 'combined.log'),  // Usa la ruta correcta con 'logDir'
     }),
   ],
 });
