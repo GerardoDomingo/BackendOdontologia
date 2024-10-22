@@ -25,21 +25,20 @@ const transporter = nodemailer.createTransport({
 
 // Función para eliminar registros incompletos después de 10 minutos
 const eliminarRegistrosIncompletos = () => {
-    const sql = `
-      DELETE FROM pacientes 
+    const sql = 
+      `DELETE FROM pacientes 
       WHERE registro_completo = 0 
-      AND TIMESTAMPDIFF(MINUTE, fecha_creacion, NOW()) > 10
-    `;
+      AND TIMESTAMPDIFF(MINUTE, fecha_creacion, NOW()) > 10`
+    ;
 
     db.query(sql, (err, result) => {
         if (err) {
-            logger.error('Error al eliminar registros incompletos:', err);
+            console.error('Error al eliminar registros incompletos:', err);
         } else {
-            logger.info(`${result.affectedRows} registros incompletos eliminados.`);
+            console.log(`${result.affectedRows} registros incompletos eliminados.`);
         }
     });
 };
-
 // Configuración del cron job para ejecutar la limpieza cada 10 minutos
 cron.schedule('*/10 * * * *', () => {
     console.log('Ejecutando limpieza de registros incompletos...');
