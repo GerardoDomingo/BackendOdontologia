@@ -16,12 +16,12 @@ const logger = createLogger({
   transports: [
     // Para registrar los errores en error.log dentro de utils/logs
     new transports.File({
-      filename: path.join(__dirname, 'logs/error.log'),  // Se ajusta la ruta
+      filename: path.join(__dirname, './logs/error.log'),  // Se ajusta la ruta
       level: 'error'
     }),
     // Para registrar todos los logs (info, warn, error, etc.) en combined.log dentro de utils/logs
     new transports.File({
-      filename: path.join(__dirname, 'logs/combined.log')  // Se ajusta la ruta
+      filename: path.join(__dirname, './logs/combined.log')  // Se ajusta la ruta
     }),
   ],
 });
