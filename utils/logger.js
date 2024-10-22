@@ -1,12 +1,11 @@
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, printf } = format;
+const DailyRotateFile = require('winston-daily-rotate-file');
 
-// Formato personalizado para los logs
 const logFormat = printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level.toUpperCase()}]: ${message}`;
 });
 
-// Crear logger con opciones
 const logger = createLogger({
   format: combine(
     timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -14,8 +13,12 @@ const logger = createLogger({
   ),
   transports: [
     new transports.Console(),  // Log en consola
-    new transports.File({ filename: 'logs/error.log', level: 'error' }),  // Log de errores
-    new transports.File({ filename: 'logs/combined.log' })  // Log combinado
+    new DailyRotateFile({
+      filename: 'logs/application-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxSize: '20m',  // Máximo tamaño por archivo
+      maxFiles: '14d'  // Guardar logs de los últimos 14 días
+    })
   ]
 });
 
