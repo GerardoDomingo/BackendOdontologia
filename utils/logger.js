@@ -19,7 +19,7 @@ const logger = createLogger({
     ]
 });
 
-// Para también registrar en la consola
+// Para también registrar en la consolaa
 if (process.env.NODE_ENV !== 'production') {
     logger.add(new transports.Console({
         format: combine(
