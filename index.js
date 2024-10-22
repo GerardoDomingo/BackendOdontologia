@@ -39,6 +39,9 @@ app.use('/api/deslinde', deslindeRoutes); // Rutas de deslinde legal
 app.use('/api/termiCondicion', terminosRoutes); // Rutas de términos y condiciones
 app.use('/api/perfilEmpresa', perfil_empresa);
 
+// Log de prueba para ver si se escribe en error.log
+logger.error('Este es un error de prueba');
+
 // Iniciar el servidor
 app.listen(3001, () => {
   logger.info('Servidor iniciado en el puerto 3001'); 
