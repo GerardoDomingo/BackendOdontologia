@@ -207,6 +207,7 @@ router.post('/recuperacion', async (req, res) => {
         });
     } catch (rateLimiterError) {
         logger.warn(`Demasiados intentos de recuperación de contraseña desde la IP: ${ipAddress}`);
+
         return res.status(429).json({ message: 'Demasiados intentos. Inténtalo más tarde.' });
     }
 });
@@ -400,4 +401,3 @@ router.post('/verify-token', (req, res) => {
 
 
 module.exports = router;
-xº
