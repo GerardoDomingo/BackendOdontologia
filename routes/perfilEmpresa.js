@@ -51,7 +51,7 @@ router.post('/insert', (req, res, next) => {
 router.get('/get', (req, res) => {
     const query = `SELECT * FROM perfil_empresa LIMIT 1`; // Modifica según tu lógica de selección
     db.query(query, (err, results) => {
-        if (erxr) {
+        if (err) {
             console.log(err);
             return res.status(500).send('Error en el servidor');
         }

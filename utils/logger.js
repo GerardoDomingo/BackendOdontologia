@@ -1,6 +1,6 @@
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, printf } = format;
-const DailyRotateFile = require('winston-daily-rotate-file');
+const db = require('../db');  // Importar el pool de conexiones
 
 const logFormat = printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level.toUpperCase()}]: ${message}`;
@@ -12,12 +12,19 @@ const logger = createLogger({
     logFormat
   ),
   transports: [
-    new transports.Console(),  // Log en consola
-    new DailyRotateFile({
-      filename: 'logs/application-%DATE%.log',
-      datePattern: 'YYYY-MM-DD',
-      maxSize: '20m',  // Máximo tamaño por archivo
-      maxFiles: '14d'  // Guardar logs de los últimos 14 días
+    new transports.Console(),  // Mostrar logs en la consola
+    new transports.Stream({
+      stream: {
+        write: (log) => {
+          const logData = JSON.parse(log);
+          const sql = 'INSERT INTO logs (level, message, timestamp) VALUES (?, ?, ?)';
+          db.query(sql, [logData.level, logData.message, logData.timestamp], (err) => {
+            if (err) {
+              console.error('Error al insertar el log en la base de datos:', err);
+            }
+          });
+        }
+      }
     })
   ]
 });
