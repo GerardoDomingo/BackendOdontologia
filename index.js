@@ -5,10 +5,6 @@ const app = express();
 const helmet = require('helmet');  // Usa helmet para manejar las cabeceras de seguridad
 const logger = require('./utils/logger');
 
-logger.info('Este es un log de prueba para verificar la generación de logs.');
-logger.error('Este es un error de prueba.');
-
-
 // Configurar las políticas de seguridad de contenido (CSP) con Helmet
 app.use(
   helmet({

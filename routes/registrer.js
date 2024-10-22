@@ -33,9 +33,9 @@ const eliminarRegistrosIncompletos = () => {
 
     db.query(sql, (err, result) => {
         if (err) {
-            console.error('Error al eliminar registros incompletos:', err);
+            logger.error('Error al eliminar registros incompletos:', err);
         } else {
-            console.log(`${result.affectedRows} registros incompletos eliminados.`);
+            logger.info(`${result.affectedRows} registros incompletos eliminados.`);
         }
     });
 };
@@ -51,7 +51,6 @@ router.post('/register', async (req, res) => {
     try {
         logger.info('Intento de registro de usuario.');
 
-        // Sanitizar todas las entradas del usuario usando XSS
         const nombre = xss(req.body.nombre);
         const aPaterno = xss(req.body.aPaterno);
         const aMaterno = xss(req.body.aMaterno);
@@ -102,8 +101,10 @@ router.post('/register', async (req, res) => {
                     const insertSql = `INSERT INTO pacientes (nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, password, registro_completo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
                     db.query(insertSql, [nombre, aPaterno, aMaterno, edad, genero, lugar, telefono, email, alergias, hashedPassword], (err, result) => {
                         if (err) {
+                            logger.error('Error al registrar el paciente:', err);
                             return res.status(500).json({ message: 'Error al registrar el paciente.' });
                         }
+                        logger.info('Paciente registrado correctamente.');
                         return res.status(201).json({ message: 'Paciente registrado correctamente.' });
                     });
                 }
@@ -138,6 +139,7 @@ router.post('/recuperacion', async (req, res) => {
     try {
         // Limitar los intentos de recuperación de contraseña desde la misma IP
         await rateLimiter.consume(ipAddress);
+        logger.info(`Intento de recuperación de contraseña para el email: ${email} desde la IP: ${ipAddress}`);
 
         // Validar formato de correo electrónico
         if (!validateEmail(email)) {
@@ -195,13 +197,16 @@ router.post('/recuperacion', async (req, res) => {
 
                 transporter.sendMail(mailOptions, (err, info) => {
                     if (err) {
+                        logger.error('Error al enviar el correo de recuperación:', err);
                         return res.status(500).json({ message: 'Error al enviar el correo de recuperación.' });
                     }
+                    logger.info(`Correo de recuperación enviado correctamente a: ${email}`);
                     res.status(200).json({ message: 'Se ha enviado un enlace de recuperación a tu correo.' });
                 });
             });
         });
     } catch (rateLimiterError) {
+        logger.warn(`Demasiados intentos de recuperación de contraseña desde la IP: ${ipAddress}`);
         return res.status(429).json({ message: 'Demasiados intentos. Inténtalo más tarde.' });
     }
 });
@@ -395,3 +400,4 @@ router.post('/verify-token', (req, res) => {
 
 
 module.exports = router;
+xº
