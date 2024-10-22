@@ -1,10 +1,26 @@
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, printf } = format;
-const db = require('../db');  // Importar el pool de conexiones
+const db = require('../db');  // Importar el pool de conexiones de MySQL
 
 const logFormat = printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level.toUpperCase()}]: ${message}`;
 });
+
+// Transporte personalizado para insertar los logs en MySQL
+class MySQLTransport extends transports.Stream {
+  log(info, callback) {
+    setImmediate(() => this.emit('logged', info));
+
+    const sql = 'INSERT INTO logs (level, message, timestamp) VALUES (?, ?, ?)';
+    db.query(sql, [info.level, info.message, new Date()], (err) => {
+      if (err) {
+        console.error('Error al insertar el log en la base de datos:', err);
+      }
+    });
+
+    callback();
+  }
+}
 
 const logger = createLogger({
   format: combine(
@@ -12,20 +28,8 @@ const logger = createLogger({
     logFormat
   ),
   transports: [
-    new transports.Console(),  // Mostrar logs en la consola
-    new transports.Stream({
-      stream: {
-        write: (log) => {
-          const logData = JSON.parse(log);
-          const sql = 'INSERT INTO logs (level, message, timestamp) VALUES (?, ?, ?)';
-          db.query(sql, [logData.level, logData.message, logData.timestamp], (err) => {
-            if (err) {
-              console.error('Error al insertar el log en la base de datos:', err);
-            }
-          });
-        }
-      }
-    })
+    new transports.Console(),  // Log en la consola
+    new MySQLTransport()  // Nuestro transporte personalizado para MySQL
   ]
 });
 
