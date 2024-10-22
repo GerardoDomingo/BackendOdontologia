@@ -7,7 +7,7 @@ const xss = require('xss');
 const { RateLimiterMemory } = require('rate-limiter-flexible');
 const cron = require('node-cron');
 const router = express.Router();
-const logger = require('../utils/logger'); 
+const logger = require('../utils/logger');
 
 // Configuración del limitador para ataques de fuerza bruta
 const rateLimiter = new RateLimiterMemory({
@@ -25,11 +25,11 @@ const transporter = nodemailer.createTransport({
 
 // Función para eliminar registros incompletos después de 10 minutos
 const eliminarRegistrosIncompletos = () => {
-    const sql = 
-      `DELETE FROM pacientes 
+    const sql =
+        `DELETE FROM pacientes 
       WHERE registro_completo = 0 
       AND TIMESTAMPDIFF(MINUTE, fecha_creacion, NOW()) > 10`
-    ;
+        ;
 
     db.query(sql, (err, result) => {
         if (err) {
@@ -58,7 +58,7 @@ router.post('/register', async (req, res) => {
         const lugar = xss(req.body.lugar);
         const telefono = xss(req.body.telefono);
         const email = xss(req.body.email);
-        const alergias = xss(req.body.alergias);
+        const alergias = JSON.stringify(req.body.alergias);
         const password = xss(req.body.password);
 
         if (!nombre || !aPaterno || !aMaterno || !edad || !genero || !lugar || !telefono || !email || !password) {
