@@ -13,20 +13,23 @@ const logger = createLogger({
     logFormat
   ),
   transports: [
-    // Para registrar errores
-    new transports.File({
-      filename: path.join(__dirname, '../logs/error.log'),
-      level: 'error'
-    }),
-    // Para registrar todos los logs (info, warn, error, etc.)
-    new transports.File({
-      filename: path.join(__dirname, '../logs/combined.log')
-    }),
-    // Opción para registrar en consola en modo desarrollo
+    // En producción (Render) solo usar consola
     new transports.Console({
       format: combine(timestamp(), logFormat),
-    })
-  ]
+    }),
+  ],
 });
+
+// Solo agregar logs a archivos si no es producción
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new transports.File({
+    filename: path.join(__dirname, '../logs/error.log'),
+    level: 'error'
+  }));
+  logger.add(new transports.File({
+    filename: path.join(__dirname, '../logs/combined.log')
+  }));
+}
+
 
 module.exports = logger;

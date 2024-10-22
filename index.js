@@ -3,7 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
 const helmet = require('helmet');  // Usa helmet para manejar las cabeceras de seguridad
-const logger = require('./utils/logger'); 
+const logger = require('./uti ls/logger'); 
 
 // Configurar las políticas de seguridad de contenido (CSP) con Helmet
 app.use(
