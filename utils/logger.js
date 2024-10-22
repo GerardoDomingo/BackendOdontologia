@@ -6,8 +6,8 @@ const logFormat = printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level.toUpperCase()}]: ${message}`;
 });
 
-// Transporte personalizado para insertar los logs en MySQL
-class MySQLTransport extends transports.Stream {
+// Transporte personalizado para insertar logs en MySQL
+class MySQLTransport {
   log(info, callback) {
     setImmediate(() => this.emit('logged', info));
 
@@ -18,7 +18,9 @@ class MySQLTransport extends transports.Stream {
       }
     });
 
-    callback();
+    if (callback) {
+      callback();
+    }
   }
 }
 
@@ -29,7 +31,7 @@ const logger = createLogger({
   ),
   transports: [
     new transports.Console(),  // Log en la consola
-    new MySQLTransport()  // Nuestro transporte personalizado para MySQL
+    new MySQLTransport()  // Transporte personalizado para MySQL
   ]
 });
 
