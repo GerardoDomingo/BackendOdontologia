@@ -63,7 +63,7 @@ const logger = createLogger({
   ),
   transports: [
     new transports.Console(),  // Log en la consola
-    new MySQLTransport()       // Transporte personalizado para MySQL
+    new MySQLTransport()       // Transporte personalizado para MySQLl
   ]
 });
 
