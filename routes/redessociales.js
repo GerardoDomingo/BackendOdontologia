@@ -2,12 +2,21 @@ const express = require('express');
 const db = require('../db'); // Ruta correcta a tu archivo de configuración de base de datos
 const router = express.Router();
 
-// Endpoint para obtener las redes sociales de una empresa
-router.get('/:id_empresa', (req, res) => {
-    const { id_empresa } = req.params;
+// Función para validar URL
+function validateUrl(url) {
+    const urlPattern = new RegExp('^(https?:\\/\\/)?'+ // Protocolo
+    '((([a-zA-Z0-9$_.+!*\'(),;?&=-]|%[0-9a-fA-F]{2})+(:([a-zA-Z0-9$_.+!*\'(),;?&=-]|%[0-9a-fA-F]{2})+)?@)?'+ // Usuario:Contraseña
+    '((\\[(|(0-9A-Fa-f]{1,4}:{0,5}([0-9A-Fa-f]{1,4})?\\]))|'+ // IPv6 (opcional)
+    '(([a-zA-Z0-9_.~%+-]+)+)?([a-zA-Z]{2,})(:(d+))?(\\/[-a-zA-Z0-9@:%._\\+~#=]*)*'+ // Dominio
+    '(\\?([;&a-zA-Z0-9$_.+!*\'(),;=:@%#?&=-]+)?)?'+ // Parámetros opcionales
+    '(#[-a-zA-Z0-9@:%._\\+~#=]*)?$');
+    return urlPattern.test(url);
+}
 
-    const query = `SELECT * FROM redes_sociales WHERE id_empresa = ?`;
-    db.query(query, [id_empresa], (err, results) => {
+// Endpoint para obtener todas las redes sociales
+router.get('/', (req, res) => {
+    const query = `SELECT * FROM redes_sociales ORDER BY fecha_creacion DESC`;
+    db.query(query, (err, results) => {
         if (err) {
             console.error(err);
             return res.status(500).send('Error en el servidor al obtener redes sociales');
@@ -18,14 +27,14 @@ router.get('/:id_empresa', (req, res) => {
 
 // Endpoint para agregar una nueva red social
 router.post('/nuevo', (req, res) => {
-    const { id_empresa, nombre_red, url } = req.body;
+    const { nombre_red, url } = req.body;
 
-    if (!id_empresa || !nombre_red || !url) {
-        return res.status(400).send('Todos los campos son obligatorios');
+    if (!nombre_red || !url || !validateUrl(url)) {
+        return res.status(400).send('Todos los campos son obligatorios y el URL debe ser válido');
     }
 
-    const query = `INSERT INTO redes_sociales (id_empresa, nombre_red, url) VALUES (?, ?, ?)`;
-    db.query(query, [id_empresa, nombre_red, url], (err, result) => {
+    const query = `INSERT INTO redes_sociales (nombre_red, url) VALUES (?, ?)`;
+    db.query(query, [nombre_red, url], (err, result) => {
         if (err) {
             console.error(err);
             return res.status(500).send('Error en el servidor al agregar red social');
@@ -39,8 +48,8 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
     const { nombre_red, url } = req.body;
 
-    if (!nombre_red || !url) {
-        return res.status(400).send('Todos los campos son obligatorios');
+    if (!nombre_red || !url || !validateUrl(url)) {
+        return res.status(400).send('Todos los campos son obligatorios y el URL debe ser válido');
     }
 
     const query = `UPDATE redes_sociales SET nombre_red = ?, url = ? WHERE id = ?`;
