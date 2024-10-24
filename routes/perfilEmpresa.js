@@ -72,58 +72,6 @@ router.get('/get', (req, res) => {
 });
 
 
-// Endpoint para actualizar el perfil de empresa
-router.put('/update', (req, res, next) => {
-    upload.single('logo')(req, res, (err) => {
-        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).send('El archivo es demasiado grande. El tamaño máximo permitido es de 10MB.');
-        } else if (err) {
-            return res.status(400).send(err.message);
-        }
-        next();
-    });
-}, (req, res) => {
-    const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
-    const logo = req.file ? req.file.buffer : null;
-
-    // Verifica que se haya enviado el id_empresa
-    if (!id_empresa) {
-        return res.status(400).send('El id_empresa es obligatorio para actualizar');
-    }
-
-    // Verifica que se envíen los campos obligatorios
-    if (!nombre_empresa || !correo_electronico) {
-        return res.status(400).send('Nombre de empresa y correo electrónico son obligatorios');
-    }
-
-    // Prepara la consulta SQL para la actualización
-    let query = `UPDATE perfil_empresa SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_electronico = ?, descripcion = ?, slogan = ?, titulo_pagina = ?`;
-    const queryParams = [nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina];
-
-    // Si se subió un nuevo logo, incluir el logo en la actualización
-    if (logo) {
-        query += `, logo = ?`;
-        queryParams.push(logo);
-    }
-
-    query += ` WHERE id_empresa = ?`;
-    queryParams.push(id_empresa);
-
-    // Ejecuta la consulta
-    db.query(query, queryParams, (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
-        }
-
-        if (result.affectedRows === 0) {
-            return res.status(404).send('Perfil de empresa no encontrado');
-        }
-
-        res.status(200).send('Perfil de empresa actualizado con éxito');
-    });
-});
-
 // Endpoint para actualizar el logo de la empresa
 router.put('/updateLogo', (req, res, next) => {
     upload.single('logo')(req, res, (err) => {
@@ -162,15 +110,15 @@ router.put('/updateLogo', (req, res, next) => {
     });
 });
 
-// Endpoint para actualizar los datos de la empresa (sin logo)
+// Endpoint para actualizar
 router.put('/updateDatos', (req, res) => {
+    console.log(req.body);  // <-- Verifica los datos que estás recibiendo en el backend
     const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
 
     if (!id_empresa) {
         return res.status(400).send('El id_empresa es obligatorio para actualizar los datos');
     }
 
-    // Verifica que se envíen los campos obligatorios
     if (!nombre_empresa || !correo_electronico) {
         return res.status(400).send('Nombre de empresa y correo electrónico son obligatorios');
     }
