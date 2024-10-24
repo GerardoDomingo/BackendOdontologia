@@ -2,14 +2,17 @@ const express = require('express');
 const db = require('../db'); // Ruta correcta a tu archivo de configuración de base de datos
 const router = express.Router();
 
-// Función para validar URL
+// Función para validar URL (simplificada sin validación de WhatsApp)
 function validateUrl(url) {
-    const urlPattern = new RegExp('^(https?:\\/\\/)?'+ // Protocolo
-    '((([a-zA-Z0-9$_.+!*\'(),;?&=-]|%[0-9a-fA-F]{2})+(:([a-zA-Z0-9$_.+!*\'(),;?&=-]|%[0-9a-fA-F]{2})+)?@)?'+ // Usuario:Contraseña
-    '((\\[(|(0-9A-Fa-f]{1,4}:{0,5}([0-9A-Fa-f]{1,4})?\\]))|'+ // IPv6 (opcional)
-    '(([a-zA-Z0-9_.~%+-]+)+)?([a-zA-Z]{2,})(:(d+))?(\\/[-a-zA-Z0-9@:%._\\+~#=]*)*'+ // Dominio
-    '(\\?([;&a-zA-Z0-9$_.+!*\'(),;=:@%#?&=-]+)?)?'+ // Parámetros opcionales
-    '(#[-a-zA-Z0-9@:%._\\+~#=]*)?$');
+    const urlPattern = new RegExp(
+        '^(https?:\\/\\/)?' + // Protocolo
+        '((([a-zA-Z0-9$_.+!*\'(),;?&=-]|%[0-9a-fA-F]{2})+(:([a-zA-Z0-9$_.+!*\'(),;?&=-]|%[0-9a-fA-F]{2})+)?@)?' + // Usuario:Contraseña
+        '((\\[(|([0-9A-Fa-f]{1,4}:){0,5}([0-9A-Fa-f]{1,4})?\\]))|' + // IPv6 (opcional)
+        '(([a-zA-Z0-9_.~%+-]+)+)?([a-zA-Z]{2,})(:\\d+)?' + // Dominio e IP
+        '(\\/[-a-zA-Z0-9@:%._\\+~#=]*)*' + // Ruta
+        '(\\?([;&a-zA-Z0-9$_.+!*\'(),;=:@%#?&=-]+)?)?' + // Parámetros opcionales
+        '(#[-a-zA-Z0-9@:%._\\+~#=]*)?$' // Fragmentos opcionales
+    );
     return urlPattern.test(url);
 }
 
@@ -36,7 +39,7 @@ router.post('/nuevo', (req, res) => {
     const query = `INSERT INTO redes_sociales (nombre_red, url) VALUES (?, ?)`;
     db.query(query, [nombre_red, url], (err, result) => {
         if (err) {
-            console.error(err); // Verifica que los errores se están manejando
+            console.error(err);
             return res.status(500).send('Error en el servidor al agregar red social');
         }
         res.status(201).send('Red social agregada con éxito');
