@@ -4,7 +4,7 @@ const multer = require('multer');
 const router = express.Router();
 
 // Configuración de multer para manejar la subida de archivos en memoria
-const storage = multer.memoryStorage(); 
+const storage = multer.memoryStorage();
 const upload = multer({
     storage: storage,
     limits: { fileSize: 1024 * 1024 * 10 }, // Límite de 10MB para archivos
@@ -29,16 +29,17 @@ router.post('/insert', (req, res, next) => {
         next();
     });
 }, (req, res) => {
-    const { nombre_empresa, direccion, telefono, correo_electronico, descripcion } = req.body;
+    const { nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
     const logo = req.file ? req.file.buffer : null;
 
     if (!nombre_empresa || !correo_electronico) {
         return res.status(400).send('Nombre de empresa y correo electrónico son obligatorios');
     }
 
-    const query = `INSERT INTO perfil_empresa (nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo) VALUES (?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO perfil_empresa (nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, slogan, titulo_pagina) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(query, [nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo], (err, result) => {
+    db.query(query, [nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, slogan, titulo_pagina], (err, result) => {
         if (err) {
             console.log(err);
             return res.status(500).send('Error en el servidor');
@@ -49,7 +50,7 @@ router.post('/insert', (req, res, next) => {
 
 // Endpoint para obtener el perfil de empresa
 router.get('/get', (req, res) => {
-    const query = `SELECT * FROM perfil_empresa LIMIT 1`; // Modifica según tu lógica de selección
+    const query = `SELECT * FROM perfil_empresa LIMIT 1`;
     db.query(query, (err, results) => {
         if (err) {
             console.log(err);
@@ -66,9 +67,10 @@ router.get('/get', (req, res) => {
             perfilEmpresa.logo = perfilEmpresa.logo.toString('base64');
         }
 
-        res.status(200).json(perfilEmpresa); // Devuelve el resultado con el logo convertido
+        res.status(200).json(perfilEmpresa); // Devuelve el resultado con los nuevos campos incluidos
     });
 });
+
 
 // Endpoint para actualizar el perfil de empresa
 router.put('/update', (req, res, next) => {
@@ -81,7 +83,7 @@ router.put('/update', (req, res, next) => {
         next();
     });
 }, (req, res) => {
-    const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion } = req.body;
+    const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
     const logo = req.file ? req.file.buffer : null;
 
     // Verifica que se haya enviado el id_empresa
@@ -95,10 +97,20 @@ router.put('/update', (req, res, next) => {
     }
 
     // Prepara la consulta SQL para la actualización
-    const query = `UPDATE perfil_empresa SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_electronico = ?, descripcion = ?, logo = ? WHERE id_empresa = ?`;
+    let query = `UPDATE perfil_empresa SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_electronico = ?, descripcion = ?, slogan = ?, titulo_pagina = ?`;
+    const queryParams = [nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina];
+
+    // Si se subió un nuevo logo, incluir el logo en la actualización
+    if (logo) {
+        query += `, logo = ?`;
+        queryParams.push(logo);
+    }
+
+    query += ` WHERE id_empresa = ?`;
+    queryParams.push(id_empresa);
 
     // Ejecuta la consulta
-    db.query(query, [nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, id_empresa], (err, result) => {
+    db.query(query, queryParams, (err, result) => {
         if (err) {
             console.log(err);
             return res.status(500).send('Error en el servidor');
