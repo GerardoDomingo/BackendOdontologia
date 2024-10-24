@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
 
 //Protección contra ataques de fuerza bruta
 const rateLimiter = new RateLimiterMemory({
-    points: 10,
+    points: 100,
     duration: 3 * 60 * 60,
 });
 
