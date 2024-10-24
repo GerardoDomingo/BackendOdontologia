@@ -30,6 +30,7 @@ const deslindeRoutes = require('./routes/deslindelegal.js');
 const terminosRoutes = require('./routes/terminosYcondicion.js');
 const perfil_empresa=require('./routes/perfilEmpresa.js');
 const reportes=require('./routes/reportes.js')
+const redes=require('./routes/redessociales.js');
 
 // Asignar las rutas a la aplicaciónes
 app.use('/api', Registrer);
@@ -39,6 +40,7 @@ app.use('/api/deslinde', deslindeRoutes);
 app.use('/api/termiCondicion', terminosRoutes); 
 app.use('/api/perfilEmpresa', perfil_empresa);
 app.use('/api/reportes',reportes);
+app.use('/api/redesSociales',redes);
 
 // Iniciar el servidor
 app.listen(3001, () => {
