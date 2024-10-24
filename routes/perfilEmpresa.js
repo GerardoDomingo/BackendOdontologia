@@ -156,5 +156,34 @@ router.delete('/delete/:id', (req, res) => {
     });
 });
 
+// Endpoint para obtener el logo y el título de la página
+router.get('/getTitleAndLogo', (req, res) => {
+    const query = `SELECT titulo_pagina, logo FROM perfil_empresa LIMIT 1`;
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).send('Error en el servidor al obtener los datos');
+        }
+
+        if (results.length === 0) {
+            return res.status(404).send('No se encontraron datos');
+        }
+
+        const perfilEmpresa = results[0];
+
+        // Convertir el logo a base64 para enviarlo al frontend
+        if (perfilEmpresa.logo) {
+            perfilEmpresa.logo = perfilEmpresa.logo.toString('base64');
+        }
+
+        // Enviar el título de la página y el logo
+        res.status(200).json({
+            titulo_pagina: perfilEmpresa.titulo_pagina,
+            logo: perfilEmpresa.logo,
+        });
+    });
+});
+
 // Exportar el router
 module.exports = router;
