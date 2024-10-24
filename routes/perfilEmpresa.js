@@ -124,6 +124,76 @@ router.put('/update', (req, res, next) => {
     });
 });
 
+// Endpoint para actualizar el logo de la empresa
+router.put('/updateLogo', (req, res, next) => {
+    upload.single('logo')(req, res, (err) => {
+        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send('El archivo es demasiado grande. El tamaño máximo permitido es de 10MB.');
+        } else if (err) {
+            return res.status(400).send(err.message);
+        }
+        next();
+    });
+}, (req, res) => {
+    const { id_empresa } = req.body;
+    const logo = req.file ? req.file.buffer : null;
+
+    if (!id_empresa) {
+        return res.status(400).send('El id_empresa es obligatorio para actualizar el logo');
+    }
+
+    if (!logo) {
+        return res.status(400).send('No se ha proporcionado un logo para actualizar');
+    }
+
+    const query = `UPDATE perfil_empresa SET logo = ? WHERE id_empresa = ?`;
+
+    db.query(query, [logo, id_empresa], (err, result) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).send('Error en el servidor al actualizar el logo');
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).send('Perfil de empresa no encontrado');
+        }
+
+        res.status(200).send('Logo actualizado con éxito');
+    });
+});
+
+// Endpoint para actualizar los datos de la empresa (sin logo)
+router.put('/updateDatos', (req, res) => {
+    const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
+
+    if (!id_empresa) {
+        return res.status(400).send('El id_empresa es obligatorio para actualizar los datos');
+    }
+
+    // Verifica que se envíen los campos obligatorios
+    if (!nombre_empresa || !correo_electronico) {
+        return res.status(400).send('Nombre de empresa y correo electrónico son obligatorios');
+    }
+
+    const query = `UPDATE perfil_empresa SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_electronico = ?, descripcion = ?, slogan = ?, titulo_pagina = ? WHERE id_empresa = ?`;
+
+    const queryParams = [nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina, id_empresa];
+
+    db.query(query, queryParams, (err, result) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).send('Error en el servidor al actualizar los datos');
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).send('Perfil de empresa no encontrado');
+        }
+
+        res.status(200).send('Datos de la empresa actualizados con éxito');
+    });
+});
+
+
 // Endpoint para eliminar el perfil de empresa
 router.delete('/delete/:id', (req, res) => {
     const { id } = req.params;
