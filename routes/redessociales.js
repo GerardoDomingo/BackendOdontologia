@@ -14,7 +14,7 @@ function validateUrl(url) {
 }
 
 // Endpoint para obtener todas las redes sociales
-router.get('/', (req, res) => {
+router.get('/get', (req, res) => {
     const query = `SELECT * FROM redes_sociales ORDER BY fecha_creacion DESC`;
     db.query(query, (err, results) => {
         if (err) {
@@ -36,7 +36,7 @@ router.post('/nuevo', (req, res) => {
     const query = `INSERT INTO redes_sociales (nombre_red, url) VALUES (?, ?)`;
     db.query(query, [nombre_red, url], (err, result) => {
         if (err) {
-            console.error(err);
+            console.error(err); // Verifica que los errores se están manejando
             return res.status(500).send('Error en el servidor al agregar red social');
         }
         res.status(201).send('Red social agregada con éxito');
@@ -44,7 +44,7 @@ router.post('/nuevo', (req, res) => {
 });
 
 // Endpoint para editar una red social
-router.put('/:id', (req, res) => {
+router.put('/editar/:id', (req, res) => {
     const { id } = req.params;
     const { nombre_red, url } = req.body;
 
@@ -66,7 +66,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Endpoint para eliminar una red social
-router.delete('/:id', (req, res) => {
+router.delete('/eliminar/:id', (req, res) => {
     const { id } = req.params;
 
     const query = `DELETE FROM redes_sociales WHERE id = ?`;
