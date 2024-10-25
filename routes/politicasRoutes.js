@@ -96,7 +96,11 @@ router.get('/getpolitica', (req, res) => {
 
 // Ruta para obtener todas las políticas (activas e inactivas)
 router.get('/getAllPoliticas', (req, res) => {
-    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica, CAST(version AS DECIMAL(5,1)) ASC';
+    const query = `
+        SELECT * 
+        FROM politicas_privacidad 
+        ORDER BY CAST(numero_politica AS UNSIGNED), CAST(SUBSTRING_INDEX(version, '.', 1) AS UNSIGNED), CAST(SUBSTRING_INDEX(version, '.', -1) AS DECIMAL(5,1)) ASC
+    `;
 
     db.promise().query(query)
         .then(results => {
@@ -107,5 +111,6 @@ router.get('/getAllPoliticas', (req, res) => {
             res.status(500).send('Error en el servidor');
         });
 });
+
 
 module.exports = router;
