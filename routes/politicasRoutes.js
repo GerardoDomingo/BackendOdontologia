@@ -30,7 +30,6 @@ router.post('/insert', (req, res) => {
     });
 });
 
-
 // Ruta para actualizar una política de privacidad
 router.put('/update/:id', (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
@@ -49,20 +48,20 @@ router.put('/update/:id', (req, res) => {
         let newVersion;
 
         if (currentVersion) {
-            // Incrementar la parte decimal de la versión
+            // Si la versión ya tiene un decimal, simplemente incrementamos la parte decimal
             const versionParts = currentVersion.toString().split('.');
-            if (versionParts.length === 1) {
-                // Si es una versión entera (1), la siguiente será 1.1
+            if (versionParts.length === 1 || versionParts[1] === '00') {
+                // Si es una versión entera (por ejemplo, 1), la siguiente será 1.1
                 newVersion = `${versionParts[0]}.1`;
             } else {
-                // Si es una versión decimal (1.1), incrementamos la parte decimal
-                const majorVersion = versionParts[0];
-                const minorVersion = parseInt(versionParts[1]) + 1;
+                // Si ya es decimal (por ejemplo, 1.1), incrementamos la parte decimal
+                const majorVersion = versionParts[0]; // Parte entera
+                const minorVersion = parseInt(versionParts[1], 10) + 1; // Incrementamos la parte decimal
                 newVersion = `${majorVersion}.${minorVersion}`;
             }
         } else {
-            // Si no hay versiones anteriores, comenzamos con la versión 1
-            newVersion = '1.0';
+            // Si no hay versiones anteriores, comenzamos con la versión 1.0
+            newVersion = '1.1';
         }
 
         // Desactivar la versión anterior de la política
