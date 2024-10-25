@@ -84,7 +84,10 @@ router.get('/getpolitica', (req, res) => {
     const query = 'SELECT * FROM politicas_privacidad WHERE estado = "activo" ORDER BY version DESC LIMIT 1';
 
     db.promise().query(query)
-        .then(results => {
+        .then(([results]) => {
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'No hay políticas activas' });
+            }
             res.status(200).json(results[0]);  // Devolver solo la política más reciente
         })
         .catch(err => {
