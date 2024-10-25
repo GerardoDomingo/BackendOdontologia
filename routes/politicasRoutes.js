@@ -34,7 +34,7 @@ router.post('/insert', (req, res) => {
 router.put('/update/:id', (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
 
-    // Primero obtenemos la última versión de esta política para calcular la nueva versión
+    // Obtener la última versión de esta política para calcular la nueva versión
     const selectQuery = 'SELECT MAX(CAST(version AS DECIMAL(5,2))) AS maxVersion FROM politicas_privacidad WHERE numero_politica = ?';
 
     db.query(selectQuery, [numero_politica], (err, result) => {
@@ -43,22 +43,22 @@ router.put('/update/:id', (req, res) => {
             return res.status(500).send('Error al obtener la versión actual');
         }
 
-        const currentVersion = result[0].maxVersion;
         let newVersion;
+        const currentVersion = result[0].maxVersion;
 
         if (currentVersion) {
-            // Convertimos la versión a un formato decimal con precisión de dos dígitos
-            const versionParts = currentVersion.toFixed(2).split('.');
-            const majorVersion = parseInt(versionParts[0], 10); // Parte entera
-            let minorVersion = parseInt(versionParts[1], 10);   // Parte decimal
+            // Si existe una versión anterior, incrementar solo la parte decimal
+            const versionParts = currentVersion.split('.'); 
+            const majorVersion = parseInt(versionParts[0], 10);
+            let minorVersion = parseInt(versionParts[1], 10);
 
-            // Incrementamos solo la parte decimal
+            // Incrementar la parte decimal
             minorVersion += 1;
 
-            // Formateamos la nueva versión con dos dígitos en la parte decimal
+            // Crear nueva versión con formato correcto (dos decimales en la parte menor)
             newVersion = `${majorVersion}.${minorVersion.toString().padStart(2, '0')}`;
         } else {
-            // Si no hay versiones anteriores, comenzamos con la versión 1.01
+            // Si no existe ninguna versión previa, comenzamos con la versión 1.01
             newVersion = '1.01';
         }
 
@@ -70,7 +70,7 @@ router.put('/update/:id', (req, res) => {
                 return res.status(500).send('Error al desactivar la versión anterior');
             }
 
-            // Insertar la nueva política con la versión incrementada (decimal)
+            // Insertar la nueva política con la versión incrementada
             const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
             db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', newVersion], (err, result) => {
                 if (err) {
