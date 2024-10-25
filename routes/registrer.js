@@ -18,8 +18,8 @@ const rateLimiter = new RateLimiterMemory({
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'emma041117@gmail.com',
-        pass: 'iucx jsnp pvws knxk',
+        user: 'odontologiacarol2024@gmail.com',
+        pass: 'qrvg bsfi ntxa yxgz',
     },
 });
 
@@ -169,7 +169,7 @@ router.post('/recuperacion', async (req, res) => {
 
                 // Formatear el contenido HTML del correo de recuperación de contraseña
                 const mailOptions = {
-                    from: 'e_gr@hotmail.com',
+                    from: 'odontologiacarol2024@gmail.com',
                     to: email,
                     subject: 'Recuperación de Contraseña - Odontología Carol',
                     html: `
@@ -326,7 +326,7 @@ router.post('/send-verification-email', (req, res) => {
 
             // Formatear el contenido HTML del correo
             const mailOptions = {
-                from: 'e_gr@hotmail.com',
+                from: 'odontologiacarol2024@gmail.com',
                 to: email,
                 subject: 'Verificación de Correo - Odontología Carol',
                 html: `
