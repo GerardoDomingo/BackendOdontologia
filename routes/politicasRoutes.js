@@ -7,35 +7,25 @@ router.post('/insert', (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
 
     // Verificar la versión más alta actual para asignar una nueva versión
-    const selectQuery = 'SELECT MAX(CAST(version AS DECIMAL(5,2))) AS maxVersion FROM politicas_privacidad WHERE numero_politica = ?';
+    const selectQuery = 'SELECT MAX(CAST(version AS DECIMAL(5,2))) AS maxVersion FROM politicas_privacidad';
 
-    db.query(selectQuery, [numero_politica], (err, result) => {
+    db.query(selectQuery, (err, result) => {
         if (err) {
             console.log(err);
             return res.status(500).send('Error en el servidor al obtener la versión actual');
         }
 
         // Si no hay versiones, comenzamos con la versión 1
-        const maxVersion = result[0].maxVersion ? parseFloat(result[0].maxVersion) + 1 : 1;
+        const maxVersion = result[0].maxVersion ? Math.floor(parseFloat(result[0].maxVersion)) + 1 : 1;
 
-        // Desactivar cualquier política anterior con el mismo número de política
-        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
-
-        db.query(deactivateQuery, [numero_politica], (err, result) => {
+        // Insertar la nueva política con la versión calculada
+        const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
+        db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', maxVersion.toFixed(2)], (err, result) => {
             if (err) {
                 console.log(err);
-                return res.status(500).send('Error en el servidor al desactivar versiones anteriores');
+                return res.status(500).send('Error en el servidor al insertar nueva política');
             }
-
-            // Insertar la nueva política con la versión calculada
-            const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
-            db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', maxVersion.toFixed(2)], (err, result) => {
-                if (err) {
-                    console.log(err);
-                    return res.status(500).send('Error en el servidor al insertar nueva política');
-                }
-                res.status(200).send(`Política de privacidad insertada con éxito, versión ${maxVersion.toFixed(2)}`);
-            });
+            res.status(200).send(`Política de privacidad insertada con éxito, versión ${maxVersion.toFixed(2)}`);
         });
     });
 });
@@ -93,6 +83,7 @@ router.put('/update/:id', (req, res) => {
         });
     });
 });
+
 
 // Ruta para eliminar (lógicamente) una política de privacidad
 router.put('/deactivate/:id', (req, res) => {
