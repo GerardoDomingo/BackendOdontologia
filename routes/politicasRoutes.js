@@ -144,4 +144,15 @@ router.get('/getAllPoliticas', (req, res) => {
         });
 });
 
+// Endpoint para obtener las políticas de privacidad activas
+router.get('/politicas_privacidad', (req, res) => {
+    const sql = 'SELECT * FROM politicas_privacidad WHERE estado = "activo"';
+    db.query(sql, (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al obtener las políticas de privacidad.' });
+      }
+      res.status(200).json(result);
+    });
+  });
+  
 module.exports = router;

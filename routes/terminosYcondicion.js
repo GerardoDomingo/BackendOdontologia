@@ -143,5 +143,15 @@ router.get('/getAllTerminos', (req, res) => {
             res.status(500).send('Error en el servidor');
         });
 });
-
+// Endpoint para obtener los términos y condiciones activos
+router.get('/terminos_condiciones', (req, res) => {
+    const sql = 'SELECT * FROM terminos_condiciones WHERE estado = "activo"';
+    db.query(sql, (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al obtener los términos y condiciones.' });
+      }
+      res.status(200).json(result);
+    });
+  });
+  
 module.exports = router;

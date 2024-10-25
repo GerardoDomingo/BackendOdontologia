@@ -145,5 +145,16 @@ router.get('/getAllDeslindes', (req, res) => {
             res.status(500).send('Error en el servidor');
         });
 });
+// Endpoint para obtener el deslinde legal activo
+router.get('/deslinde', (req, res) => {
+    const sql = 'SELECT * FROM deslinde WHERE estado = "activo"';
+    db.query(sql, (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al obtener el deslinde legal.' });
+      }
+      res.status(200).json(result);
+    });
+  });
+  
 
 module.exports = router;

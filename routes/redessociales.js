@@ -75,5 +75,16 @@ router.delete('/eliminar/:id', (req, res) => {
         res.status(200).send('Red social eliminada con éxito');
     });
 });
+// Endpoint para obtener todas las redes sociales
+router.get('/sociales', (req, res) => {
+    const sql = 'SELECT * FROM redes_sociales';
+    db.query(sql, (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al obtener las redes sociales.' });
+      }
+      res.status(200).json(result);
+    });
+  });
+  
 
 module.exports = router;
