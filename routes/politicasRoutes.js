@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
-
+//POLITICAS
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', async (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
