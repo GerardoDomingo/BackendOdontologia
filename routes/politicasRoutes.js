@@ -64,5 +64,17 @@ router.get('/getpolitica', (req, res) => {
     });
 });
 
+// Ruta para obtener todas las políticas (activas e inactivas)
+router.get('/getAllPoliticas', (req, res) => {
+    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica';
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).send('Error en el servidor');
+        }
+        res.status(200).json(results);
+    });
+});
 
 module.exports = router;
