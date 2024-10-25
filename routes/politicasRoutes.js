@@ -80,19 +80,19 @@ router.put('/deactivate/:id', (req, res) => {
         });
 });
 
-// Ruta para obtener todas las políticas de privacidad activas
 router.get('/getpolitica', (req, res) => {
-    const query = 'SELECT * FROM politicas_privacidad WHERE estado = "activo" ORDER BY numero_politica';
+    const query = 'SELECT * FROM politicas_privacidad WHERE estado = "activo" ORDER BY version DESC LIMIT 1';
 
     db.promise().query(query)
         .then(results => {
-            res.status(200).json(results[0]);
+            res.status(200).json(results[0]);  // Devolver solo la política más reciente
         })
         .catch(err => {
             console.log(err);
             res.status(500).send('Error en el servidor');
         });
 });
+
 
 // Ruta para obtener todas las políticas (activas e inactivas)
 router.get('/getAllPoliticas', (req, res) => {
