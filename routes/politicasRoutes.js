@@ -4,21 +4,37 @@ const router = express.Router();
 
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', async (req, res) => {
-    const { numero_politica, titulo, contenido, version } = req.body;
+    const { numero_politica, titulo, contenido } = req.body;
 
-    if (!numero_politica || !titulo || !contenido || !version) {
+    if (!numero_politica || !titulo || !contenido) {
         return res.status(400).send('Todos los campos son obligatorios.');
     }
 
     try {
-        // Desactivar todas las políticas antes de insertar una nueva
+        // Desactivar todas las políticas actuales antes de insertar una nueva
         await db.promise().query(`UPDATE politicas_privacidad SET estado = 'inactivo'`);
+
+        // Determinar el número de la próxima versión principal
+        const [result] = await db.promise().query(`
+            SELECT MAX(CAST(version AS DECIMAL(5, 1))) AS max_version 
+            FROM politicas_privacidad
+        `);
+
+        let newVersion;
+        if (result[0].max_version === null) {
+            // Si no existen políticas, la primera versión será "1.0"
+            newVersion = "1.0";
+        } else {
+            // Si existen políticas, incrementamos la versión principal
+            const nextVersionNumber = Math.floor(result[0].max_version) + 1;
+            newVersion = `${nextVersionNumber}.0`;
+        }
 
         const insertQuery = `
             INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
             VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_politica, titulo, contenido, version]);
+        await db.promise().query(insertQuery, [numero_politica, titulo, contenido, newVersion]);
 
         res.status(200).send('Política insertada con éxito.');
     } catch (error) {
@@ -26,6 +42,7 @@ router.post('/insert', async (req, res) => {
         res.status(500).send('Error al insertar la política.');
     }
 });
+
 // Ruta para actualizar una política existente
 router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
@@ -36,10 +53,7 @@ router.put('/update/:id', async (req, res) => {
     }
 
     try {
-        // Desactivar todas las políticas antes de actualizar la política seleccionada
-        await db.promise().query(`UPDATE politicas_privacidad SET estado = 'inactivo'`);
-
-        // Obtener la versión actual de la política a actualizar
+        // Obtener la versión actual de la política específica a actualizar
         const getPolicyQuery = `SELECT version FROM politicas_privacidad WHERE id = ?`;
         const [policy] = await db.promise().query(getPolicyQuery, [id]);
 
@@ -48,9 +62,10 @@ router.put('/update/:id', async (req, res) => {
         }
 
         const currentVersion = parseFloat(policy[0].version);
+        const newVersion = (currentVersion + 0.1).toFixed(1); // Nueva versión aumentada en 0.1
 
-        // Nueva versión aumentada en 0.1
-        const newVersion = (currentVersion + 0.1).toFixed(1);
+        // Desactivar la política actual antes de insertar la nueva
+        await db.promise().query(`UPDATE politicas_privacidad SET estado = 'inactivo' WHERE id = ?`, [id]);
 
         // Insertar nueva política con versión incrementada y estado activo
         const insertQuery = `
@@ -65,6 +80,7 @@ router.put('/update/:id', async (req, res) => {
         res.status(500).send('Error al actualizar la política.');
     }
 });
+
 // Ruta para eliminar lógicamente una política de privacidad
 router.put('/deactivate/:id', (req, res) => {
     const { id } = req.params;
@@ -81,6 +97,7 @@ router.put('/deactivate/:id', (req, res) => {
         });
 });
 
+// Ruta para obtener la política activa más reciente
 router.get('/getpolitica', (req, res) => {
     const query = 'SELECT * FROM politicas_privacidad WHERE estado = "activo" ORDER BY version DESC LIMIT 1';
 
@@ -96,7 +113,6 @@ router.get('/getpolitica', (req, res) => {
             res.status(500).send('Error en el servidor');
         });
 });
-
 
 // Ruta para obtener todas las políticas (activas e inactivas)
 router.get('/getAllPoliticas', (req, res) => {
