@@ -81,6 +81,22 @@ router.put('/update/:id', async (req, res) => {
     }
 });
 
+// Ruta para obtener una política específica por ID
+router.get('/get/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const [result] = await db.promise().query(`SELECT * FROM politicas_privacidad WHERE id = ?`, [id]);
+        if (result.length === 0) {
+            return res.status(404).send('Política no encontrada.');
+        }
+        res.status(200).json(result[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error al obtener la política.');
+    }
+});
+ 
 // Ruta para eliminar lógicamente una política de privacidad
 router.put('/deactivate/:id', (req, res) => {
     const { id } = req.params;
