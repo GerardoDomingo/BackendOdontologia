@@ -6,14 +6,24 @@ const router = express.Router();
 router.post('/insert', (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
 
-    const query = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
+    // Desactivar cualquier política anterior con el mismo número de política
+    const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
 
-    db.query(query, [numero_politica, titulo, contenido, 'activo', '1'], (err, result) => {
+    db.query(deactivateQuery, [numero_politica], (err, result) => {
         if (err) {
             console.log(err);
-            return res.status(500).send('Error en el servidor');
+            return res.status(500).send('Error en el servidor al desactivar versiones anteriores');
         }
-        res.status(200).send('Política de privacidad insertada con éxito');
+
+        // Insertar la nueva política con versión 1
+        const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
+        db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', '1'], (err, result) => {
+            if (err) {
+                console.log(err);
+                return res.status(500).send('Error en el servidor al insertar nueva política');
+            }
+            res.status(200).send('Política de privacidad insertada con éxito, versión 1');
+        });
     });
 });
 
@@ -44,15 +54,23 @@ router.put('/update/:id', (req, res) => {
             newVersion = `${majorVersion}.${minorVersion}`;
         }
 
-        const updateQuery = 'UPDATE politicas_privacidad SET numero_politica = ?, titulo = ?, contenido = ?, version = ?, estado = ? WHERE id = ?';
-        
-        // Desactivamos la política anterior
-        db.query(updateQuery, [numero_politica, titulo, contenido, newVersion, 'activo', id], (err, result) => {
+        // Desactivar la versión anterior de la política
+        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
+        db.query(deactivateQuery, [numero_politica], (err, result) => {
             if (err) {
                 console.log(err);
-                return res.status(500).send('Error al actualizar la política');
+                return res.status(500).send('Error al desactivar la versión anterior');
             }
-            res.status(200).send(`Política actualizada a la versión ${newVersion}`);
+
+            // Insertar la nueva política con la versión incrementada
+            const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
+            db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', newVersion], (err, result) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).send('Error al insertar la nueva versión de la política');
+                }
+                res.status(200).send(`Política actualizada a la versión ${newVersion}`);
+            });
         });
     });
 });
@@ -87,7 +105,7 @@ router.get('/getpolitica', (req, res) => {
 
 // Ruta para obtener todas las políticas (activas e inactivas)
 router.get('/getAllPoliticas', (req, res) => {
-    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica';
+    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica, CAST(version AS DECIMAL(10,2)) ASC';
 
     db.query(query, (err, results) => {
         if (err) {

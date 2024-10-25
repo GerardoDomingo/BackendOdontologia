@@ -1,119 +1,198 @@
 const express = require('express');
-const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
+const bcrypt = require('bcryptjs');
+const db = require('../db');
+const axios = require('axios');
+const xss = require('xss');
+const { RateLimiterMemory } = require('rate-limiter-flexible');
+const logger = require('../utils/logger');
 
-// Ruta para insertar una nueva política de privacidad (siempre versión 1)
-router.post('/insert', (req, res) => {
-    const { numero_politica, titulo, contenido } = req.body;
-
-    // Desactivar cualquier política anterior con el mismo número de política
-    const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
-
-    db.query(deactivateQuery, [numero_politica], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor al desactivar versiones anteriores');
-        }
-
-        // Insertar la nueva política con versión 1
-        const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
-        db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', '1'], (err, result) => {
-            if (err) {
-                console.log(err);
-                return res.status(500).send('Error en el servidor al insertar nueva política');
-            }
-            res.status(200).send('Política de privacidad insertada con éxito, versión 1');
-        });
-    });
+//Protección contra ataques de fuerza bruta
+const rateLimiter = new RateLimiterMemory({
+    points: 100,
+    duration: 3 * 60 * 60,
 });
 
-// Ruta para actualizar una política de privacidad
-router.put('/update/:id', (req, res) => {
-    const { id } = req.params;
-    const { numero_politica, titulo, contenido } = req.body;
+const MAX_ATTEMPTS = 5;
+const LOCK_TIME_MINUTES = 20;
 
-    // Primero obtenemos la última versión de esta política para calcular la nueva versión
-    const selectQuery = 'SELECT version FROM politicas_privacidad WHERE numero_politica = ? ORDER BY CAST(version AS DECIMAL(10,2)) DESC LIMIT 1';
-    db.query(selectQuery, [numero_politica], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error al obtener la versión actual');
+router.post('/login', async (req, res) => {
+    try {
+        const email = xss(req.body.email);  // Sanitizar input
+        const password = xss(req.body.password);  // Sanitizar input
+        const captchaValue = req.body.captchaValue;
+        const ipAddress = req.ip;
+
+        // Limitar los intentos de inicio de sesión
+        try {
+            await rateLimiter.consume(ipAddress);
+        } catch {
+            logger.error(`Demasiados intentos de inicio de sesión desde la IP: ${ipAddress}`);  // Registrar en log
+            return res.status(429).json({ message: 'Demasiados intentos. Inténtalo de nuevo más tarde.' });
         }
 
-        const currentVersion = result[0].version;
-        const versionParts = currentVersion.split('.'); // Dividimos la versión en partes
-        let newVersion;
-
-        if (versionParts.length === 1) {
-            // Si es una versión entera (1), la siguiente será 1.1
-            newVersion = `${versionParts[0]}.1`;
-        } else {
-            // Si es una versión decimal (1.1), incrementamos la parte decimal
-            const majorVersion = versionParts[0];
-            const minorVersion = parseInt(versionParts[1]) + 1;
-            newVersion = `${majorVersion}.${minorVersion}`;
+        if (!captchaValue) {
+            logger.warn(`Intento fallido sin captcha en la IP: ${ipAddress}`);
+            return res.status(400).json({ message: 'Captcha no completado.' });
         }
 
-        // Desactivar la versión anterior de la política
-        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
-        db.query(deactivateQuery, [numero_politica], (err, result) => {
-            if (err) {
-                console.log(err);
-                return res.status(500).send('Error al desactivar la versión anterior');
+        try {
+            // Verificar el CAPTCHA
+            const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=6Lc74mAqAAAAAKQ5XihKY-vB3oqpf6uYgEWy4A1k&response=${captchaValue}`;
+            const captchaResponse = await axios.post(verifyUrl);
+
+            if (!captchaResponse.data.success) {
+                logger.warn(`Captcha fallido en la IP: ${ipAddress}`);
+                return res.status(400).json({
+                    message: 'Captcha inválido. Por favor, inténtalo de nuevo.',
+                    'error-codes': captchaResponse.data['error-codes'] || [],
+                });
             }
 
-            // Insertar la nueva política con la versión incrementada
-            const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
-            db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', newVersion], (err, result) => {
+            if (!email || !password) {
+                logger.warn(`Intento de inicio de sesión fallido (faltan campos) desde la IP: ${ipAddress}`);
+                return res.status(400).json({ message: 'Por favor, proporciona ambos campos: correo electrónico y contraseña.' });
+            }
+
+            // Primero buscamos en la tabla de administradores
+            const checkAdminSql = 'SELECT * FROM administradores WHERE email = ?';
+            db.query(checkAdminSql, [email], async (err, resultAdmin) => {
                 if (err) {
-                    console.log(err);
-                    return res.status(500).send('Error al insertar la nueva versión de la política');
+                    logger.error(`Error al verificar el correo electrónico: ${err.message}`);
+                    return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
                 }
-                res.status(200).send(`Política actualizada a la versión ${newVersion}`);
+
+                if (resultAdmin.length > 0) {
+                    const administrador = resultAdmin[0];
+                    logger.info(`Inicio de sesión como administrador: ${administrador.email}`);  // Registrar en log
+                    return autenticarUsuario(administrador, ipAddress, password, 'administrador', res);
+                }
+
+                const checkUserSql = 'SELECT * FROM pacientes WHERE email = ?';
+                db.query(checkUserSql, [email], async (err, resultPaciente) => {
+                    if (err) {
+                        logger.error(`Error al verificar el correo electrónico del paciente: ${err.message}`);
+                        return res.status(500).json({ message: 'Error al verificar el correo electrónico.' });
+                    }
+
+                    if (resultPaciente.length === 0) {
+                        logger.warn(`Correo no registrado: ${email} desde la IP: ${ipAddress}`);
+                        return res.status(404).json({ message: 'Correo no registrado.' });
+                    }
+
+                    const paciente = resultPaciente[0];
+                    logger.info(`Inicio de sesión como paciente: ${paciente.email}`);  // Registrar en log
+                    return autenticarUsuario(paciente, ipAddress, password, 'paciente', res);
+                });
             });
+        } catch (error) {
+            logger.error(`Error en la verificación del captcha o en la autenticación: ${error.message}`);
+            return res.status(500).json({ message: 'Error en la verificación del captcha o en la autenticación.' });
+        }
+    } catch (error) {
+        logger.error(`Error en /login: ${error.message}`);
+        res.status(500).json({ message: 'Error en el servidor' });
+    }
+});
+
+async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res) {
+    const checkAttemptsSql = `
+        SELECT * FROM login_attempts
+        WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+        ORDER BY fecha_hora DESC LIMIT 1
+    `;
+    db.query(checkAttemptsSql, [usuario.id, ipAddress], async (err, attemptsResult) => {
+        if (err) {
+            return res.status(500).json({ message: 'Error al verificar los intentos de inicio de sesión.' });
+        }
+
+        const lastAttempt = attemptsResult[0];
+
+        // Verificar si el usuario está bloqueado
+        if (lastAttempt && lastAttempt.fecha_bloqueo && new Date(lastAttempt.fecha_bloqueo) > new Date()) {
+            return res.status(429).json({
+                message: `Tu cuenta está bloqueada hasta ${lastAttempt.fecha_bloqueo}. Inténtalo nuevamente después.`,
+            });
+        }
+
+        // Si se alcanzó el límite de intentos fallidos
+        if (lastAttempt && lastAttempt.intentos_fallidos >= MAX_ATTEMPTS) {
+            let bloqueadoHasta = lastAttempt.fecha_bloqueo;
+            if (!bloqueadoHasta || new Date(bloqueadoHasta) < new Date()) {
+                bloqueadoHasta = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
+
+                const updateLockSql = `
+                    UPDATE login_attempts
+                    SET fecha_bloqueo = ?
+                    WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+                `;
+                db.query(updateLockSql, [bloqueadoHasta, usuario.id, ipAddress], (err) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al actualizar la fecha de bloqueo.' });
+                    }
+                });
+            }
+
+            return res.status(429).json({
+                message: `Has superado el límite de intentos. Tu cuenta está bloqueada hasta ${bloqueadoHasta}.`,
+                lockUntil: bloqueadoHasta
+            });
+        }
+
+        const isMatch = await bcrypt.compare(password, usuario.password);
+
+        if (!isMatch) {
+            let newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
+            let newFechaBloqueo = null;
+
+            if (newFailedAttempts >= MAX_ATTEMPTS) {
+                newFechaBloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
+            }
+
+            if (lastAttempt) {
+                const updateAttemptSql = `
+                    UPDATE login_attempts
+                    SET intentos_fallidos = ?, fecha_bloqueo = ?
+                    WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+                `;
+                db.query(updateAttemptSql, [newFailedAttempts, newFechaBloqueo, usuario.id, ipAddress], (err) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al actualizar el intento fallido.' });
+                    }
+                });
+            } else {
+                const insertAttemptSql = `
+                    INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo)
+                    VALUES (?, ?, 0, ?, ?)
+                `;
+                db.query(insertAttemptSql, [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo], (err) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al registrar el intento fallido.' });
+                    }
+                });
+            }
+
+            return res.status(401).json({
+                message: 'Contraseña incorrecta.',
+                failedAttempts: newFailedAttempts,
+                lockUntil: newFechaBloqueo || null,
+            });
+        }
+
+        const clearAttemptsSql = `
+            DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+        `;
+        db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error al limpiar los intentos fallidos.' });
+            }
+        });
+
+        return res.status(200).json({
+            message: 'Inicio de sesión exitoso',
+            user: { nombre: usuario.nombre, email: usuario.email, tipo: tipoUsuario }
         });
     });
-});
-
-// Ruta para eliminar (lógicamente) una política de privacidad
-router.put('/deactivate/:id', (req, res) => {
-    const { id } = req.params;
-
-    const query = 'UPDATE politicas_privacidad SET estado = ? WHERE id = ?';
-
-    db.query(query, ['inactivo', id], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
-        }
-        res.status(200).send('Política de privacidad eliminada (lógicamente) con éxito');
-    });
-});
-
-// Ruta para obtener todas las políticas de privacidad activas
-router.get('/getpolitica', (req, res) => {
-    const query = 'SELECT * FROM politicas_privacidad WHERE estado = "activo" ORDER BY numero_politica';
-
-    db.query(query, (err, results) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
-        }
-        res.status(200).json(results);
-    });
-});
-
-// Ruta para obtener todas las políticas (activas e inactivas)
-router.get('/getAllPoliticas', (req, res) => {
-    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica, CAST(version AS DECIMAL(10,2)) ASC';
-
-    db.query(query, (err, results) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
-        }
-        res.status(200).json(results);
-    });
-});
+}
 
 module.exports = router;
