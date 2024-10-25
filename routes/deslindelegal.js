@@ -2,63 +2,148 @@ const express = require('express');
 const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
 
-// Ruta para insertar un nuevo deslinde legal
-router.post('/insert', (req, res) => {
+// DESLINDE
+
+// Ruta para insertar un nuevo deslinde
+router.post('/insert', async (req, res) => {
     const { numero_deslinde, titulo, contenido } = req.body;
 
-    const query = `INSERT INTO tbldeslinde_legal (numero_deslinde, titulo, contenido) VALUES (?, ?, ?)`;
+    if (!numero_deslinde || !titulo || !contenido) {
+        return res.status(400).send('Todos los campos son obligatorios.');
+    }
 
-    db.query(query, [numero_deslinde, titulo, contenido], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
+    try {
+        // Desactivar todos los deslindes actuales antes de insertar uno nuevo
+        await db.promise().query(`UPDATE deslinde SET estado = 'inactivo'`);
+
+        // Determinar el número de la próxima versión principal
+        const [result] = await db.promise().query(`
+            SELECT MAX(CAST(version AS DECIMAL(5, 1))) AS max_version 
+            FROM deslinde
+        `);
+
+        let newVersion;
+        if (result[0].max_version === null) {
+            // Si no existen deslindes, la primera versión será "1.0"
+            newVersion = "1.0";
+        } else {
+            // Si existen deslindes, incrementar la versión principal
+            const nextVersionNumber = Math.floor(result[0].max_version) + 1;
+            newVersion = `${nextVersionNumber}.0`;
         }
-        res.status(200).send('Deslinde legal insertado con éxito');
-    });
+
+        const insertQuery = `
+            INSERT INTO deslinde (numero_deslinde, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
+            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+        `;
+        await db.promise().query(insertQuery, [numero_deslinde, titulo, contenido, newVersion]);
+
+        res.status(200).send('Deslinde insertado con éxito.');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error al insertar el deslinde.');
+    }
 });
 
-// Ruta para actualizar un deslinde legal
-router.put('/update/:id', (req, res) => {
+// Ruta para actualizar un deslinde existente
+router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
     const { numero_deslinde, titulo, contenido } = req.body;
 
-    const query = `UPDATE tbldeslinde_legal SET numero_deslinde = ?, titulo = ?, contenido = ? WHERE id = ?`;
+    if (!titulo || !contenido || !numero_deslinde) {
+        return res.status(400).send('Número de deslinde, título y contenido son obligatorios.');
+    }
 
-    db.query(query, [numero_deslinde, titulo, contenido, id], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
+    try {
+        // Obtener la versión actual del deslinde a actualizar
+        const getDeslindeQuery = `SELECT version FROM deslinde WHERE id = ?`;
+        const [deslinde] = await db.promise().query(getDeslindeQuery, [id]);
+
+        if (deslinde.length === 0) {
+            return res.status(404).send('Deslinde no encontrado.');
         }
-        res.status(200).send('Deslinde legal actualizado con éxito');
-    });
+
+        const currentVersion = parseFloat(deslinde[0].version);
+        const newVersion = (currentVersion + 0.1).toFixed(1); // Nueva versión aumentada en 0.1
+
+        // Desactivar el deslinde actual antes de insertar la nueva versión
+        await db.promise().query(`UPDATE deslinde SET estado = 'inactivo' WHERE id = ?`, [id]);
+
+        // Insertar nuevo deslinde con versión incrementada y estado activo
+        const insertQuery = `
+            INSERT INTO deslinde (numero_deslinde, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
+            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+        `;
+        await db.promise().query(insertQuery, [numero_deslinde, titulo, contenido, newVersion]);
+
+        res.status(200).send('Deslinde actualizado correctamente.');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error al actualizar el deslinde.');
+    }
 });
 
-// Ruta para eliminar un deslinde legal
-router.delete('/delete/:id', (req, res) => {
+// Ruta para obtener un deslinde específico por ID
+router.get('/get/:id', async (req, res) => {
     const { id } = req.params;
 
-    const query = `DELETE FROM tbldeslinde_legal WHERE id = ?`;
-
-    db.query(query, [id], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Error en el servidor');
+    try {
+        const [result] = await db.promise().query(`SELECT * FROM deslinde WHERE id = ?`, [id]);
+        if (result.length === 0) {
+            return res.status(404).send('Deslinde no encontrado.');
         }
-        res.status(200).send('Deslinde legal eliminado con éxito');
-    });
+        res.status(200).json(result[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error al obtener el deslinde.');
+    }
 });
 
-// Ruta para obtener todos los deslindes legales
+// Ruta para desactivar (eliminar lógicamente) un deslinde
+router.put('/deactivate/:id', (req, res) => {
+    const { id } = req.params;
+
+    const query = 'UPDATE deslinde SET estado = ? WHERE id = ?';
+
+    db.promise().query(query, ['inactivo', id])
+        .then(result => {
+            res.status(200).send('Deslinde eliminado (lógicamente) con éxito');
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).send('Error en el servidor');
+        });
+});
+
+// Ruta para obtener el deslinde activo más reciente
 router.get('/getdeslinde', (req, res) => {
-    const query = `SELECT * FROM tbldeslinde_legal ORDER BY numero_deslinde`;
+    const query = 'SELECT * FROM deslinde WHERE estado = "activo" ORDER BY version DESC LIMIT 1';
 
-    db.query(query, (err, results) => {
-        if (err) {
+    db.promise().query(query)
+        .then(([results]) => {
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'No hay deslindes activos' });
+            }
+            res.status(200).json(results[0]);  // Devolver solo el deslinde más reciente
+        })
+        .catch(err => {
             console.log(err);
-            return res.status(500).send('Error en el servidor');
-        }
-        res.status(200).json(results);
-    });
+            res.status(500).send('Error en el servidor');
+        });
+});
+
+// Ruta para obtener todos los deslindes (activos e inactivos)
+router.get('/getAllDeslindes', (req, res) => {
+    const query = 'SELECT * FROM deslinde ORDER BY numero_deslinde, CAST(version AS DECIMAL(5,1)) ASC';
+
+    db.promise().query(query)
+        .then(([results]) => {
+            res.status(200).json(results);
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).send('Error en el servidor');
+        });
 });
 
 module.exports = router;
