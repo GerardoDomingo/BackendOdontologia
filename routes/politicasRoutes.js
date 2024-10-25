@@ -43,11 +43,11 @@ router.put('/update/:id', (req, res) => {
             return res.status(500).send('Error al obtener la versión actual');
         }
 
-        let newVersion;
         const currentVersion = result[0].maxVersion;
+        let newVersion;
 
         if (currentVersion) {
-            // Si existe una versión anterior, incrementar solo la parte decimal
+            // Incrementar solo la parte decimal
             const versionParts = currentVersion.split('.'); 
             const majorVersion = parseInt(versionParts[0], 10);
             let minorVersion = parseInt(versionParts[1], 10);
@@ -55,10 +55,10 @@ router.put('/update/:id', (req, res) => {
             // Incrementar la parte decimal
             minorVersion += 1;
 
-            // Crear nueva versión con formato correcto (dos decimales en la parte menor)
+            // Nueva versión formateada con dos decimales
             newVersion = `${majorVersion}.${minorVersion.toString().padStart(2, '0')}`;
         } else {
-            // Si no existe ninguna versión previa, comenzamos con la versión 1.01
+            // Si no hay versiones previas, comenzamos con la versión 1.01
             newVersion = '1.01';
         }
 
