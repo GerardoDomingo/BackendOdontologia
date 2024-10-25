@@ -2,16 +2,49 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+
+  
 // Endpoint para obtener intentos de login
 router.get('/login-attempts', async (req, res) => {
-    const query = 'SELECT * FROM login_attempts';
-    db.query(query, (err, results) => {
+    try {
+      const attemptsSql = `
+        SELECT id, ip_address, paciente_id, fecha_hora, intentos_fallidos, fecha_bloqueo
+        FROM login_attempts
+      `;
+      
+      db.query(attemptsSql, async (err, attempts) => {
         if (err) {
-            return res.status(500).json({ error: 'Error al obtener login attempts' });
+          return res.status(500).json({ message: 'Error al obtener los intentos de inicio de sesión.' });
         }
-        res.status(200).json(results);
-    });
-});
+  
+        // También puedes agregar la configuración de intentos máximos y tiempo de bloqueo si es relevante
+        const maxAttemptsSql = 'SELECT setting_value FROM config WHERE setting_name = "MAX_ATTEMPTS"';
+        const lockTimeSql = 'SELECT setting_value FROM config WHERE setting_name = "LOCK_TIME_MINUTES"';
+  
+        const maxAttempts = await new Promise((resolve, reject) => {
+          db.query(maxAttemptsSql, (err, result) => {
+            if (err) reject(err);
+            else resolve(parseInt(result[0].setting_value, 10));
+          });
+        });
+  
+        const lockTimeMinutes = await new Promise((resolve, reject) => {
+          db.query(lockTimeSql, (err, result) => {
+            if (err) reject(err);
+            else resolve(parseInt(result[0].setting_value, 10));
+          });
+        });
+  
+        res.status(200).json({
+          attempts,
+          maxAttempts,
+          lockTimeMinutes
+        });
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Error en el servidor.' });
+    }
+  });
 
 // Endpoint para obtener logs
 router.get('/logs', async (req, res) => {

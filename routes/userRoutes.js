@@ -13,8 +13,19 @@ const rateLimiter = new RateLimiterMemory({
     duration: 3 * 60 * 60,
 });
 
-const MAX_ATTEMPTS = 5;
-const LOCK_TIME_MINUTES = 20;
+
+async function getConfigValue(settingName) {
+    return new Promise((resolve, reject) => {
+        const query = 'SELECT setting_value FROM config WHERE setting_name = ?';
+        db.query(query, [settingName], (err, result) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(parseInt(result[0].setting_value, 10)); // Parsear el valor como entero
+            }
+        });
+    });
+}
 
 router.post('/login', async (req, res) => {
     try {
@@ -22,6 +33,10 @@ router.post('/login', async (req, res) => {
         const password = xss(req.body.password);  // Sanitizar input
         const captchaValue = req.body.captchaValue;
         const ipAddress = req.ip;
+
+        // Obtener los valores de MAX_ATTEMPTS y LOCK_TIME_MINUTES desde la base de datos
+        const MAX_ATTEMPTS = await getConfigValue('MAX_ATTEMPTS');
+        const LOCK_TIME_MINUTES = await getConfigValue('LOCK_TIME_MINUTES');
 
         // Limitar los intentos de inicio de sesión
         try {
@@ -96,6 +111,10 @@ router.post('/login', async (req, res) => {
 });
 
 async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res) {
+    // Obtener los valores de configuración para el número máximo de intentos y tiempo de bloqueo
+    const MAX_ATTEMPTS = await getConfigValue('MAX_ATTEMPTS');
+    const LOCK_TIME_MINUTES = await getConfigValue('LOCK_TIME_MINUTES');
+    
     const checkAttemptsSql = `
         SELECT * FROM login_attempts
         WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
