@@ -34,7 +34,7 @@ router.post('/insert', (req, res) => {
 router.put('/update/:id', (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
 
-    // Obtener la última versión de esta política para calcular la nueva versión
+    // Obtener la versión más alta de esta política para calcular la nueva versión
     const selectQuery = 'SELECT MAX(CAST(version AS DECIMAL(5,2))) AS maxVersion FROM politicas_privacidad WHERE numero_politica = ?';
 
     db.query(selectQuery, [numero_politica], (err, result) => {
@@ -43,11 +43,11 @@ router.put('/update/:id', (req, res) => {
             return res.status(500).send('Error al obtener la versión actual');
         }
 
-        const currentVersion = result[0].maxVersion;
         let newVersion;
+        const currentVersion = result[0].maxVersion;
 
         if (currentVersion) {
-            // Incrementar solo la parte decimal
+            // Incrementar solo la parte decimal correctamente
             const versionParts = currentVersion.split('.'); 
             const majorVersion = parseInt(versionParts[0], 10);
             let minorVersion = parseInt(versionParts[1], 10);
@@ -62,12 +62,12 @@ router.put('/update/:id', (req, res) => {
             newVersion = '1.01';
         }
 
-        // Desactivar la versión anterior de la política
-        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
+        // Desactivar todas las versiones anteriores de la política para asegurarnos que solo la nueva esté activa
+        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ? AND estado = "activo"';
         db.query(deactivateQuery, [numero_politica], (err, result) => {
             if (err) {
                 console.log(err);
-                return res.status(500).send('Error al desactivar la versión anterior');
+                return res.status(500).send('Error al desactivar las versiones anteriores');
             }
 
             // Insertar la nueva política con la versión incrementada
@@ -82,6 +82,7 @@ router.put('/update/:id', (req, res) => {
         });
     });
 });
+
 
 // Ruta para eliminar (lógicamente) una política de privacidad
 router.put('/deactivate/:id', (req, res) => {
