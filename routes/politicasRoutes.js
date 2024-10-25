@@ -43,25 +43,28 @@ router.put('/update/:id', (req, res) => {
             return res.status(500).send('Error al obtener la versión actual');
         }
 
-        // Obtener la versión más alta de la política y calcular la siguiente versión (decimal)
         const currentVersion = result[0].maxVersion;
         let newVersion;
 
         if (currentVersion) {
-            // Si la versión ya tiene un decimal, simplemente incrementamos la parte decimal
-            const versionParts = currentVersion.toString().split('.');
-            if (versionParts.length === 1 || versionParts[1] === '00') {
-                // Si es una versión entera (por ejemplo, 1), la siguiente será 1.1
-                newVersion = `${versionParts[0]}.1`;
-            } else {
-                // Si ya es decimal (por ejemplo, 1.1), incrementamos la parte decimal
-                const majorVersion = versionParts[0]; // Parte entera
-                const minorVersion = parseInt(versionParts[1], 10) + 1; // Incrementamos la parte decimal
-                newVersion = `${majorVersion}.${minorVersion}`;
+            // Si la versión ya tiene un decimal o es un entero, incrementamos adecuadamente
+            const versionParts = currentVersion.toFixed(2).split('.');
+            const majorVersion = parseInt(versionParts[0], 10); // Parte entera
+            let minorVersion = parseInt(versionParts[1], 10);   // Parte decimal
+
+            minorVersion += 1; // Incrementamos la parte decimal
+
+            // Si la parte decimal supera 99, reiniciamos y aumentamos la parte entera (aunque no se espera este caso, lo preveo)
+            if (minorVersion > 99) {
+                minorVersion = 0;
+                majorVersion += 1;
             }
+
+            // Formatear la nueva versión asegurando dos decimales
+            newVersion = `${majorVersion}.${minorVersion.toString().padStart(2, '0')}`;
         } else {
-            // Si no hay versiones anteriores, comenzamos con la versión 1.0
-            newVersion = '1.1';
+            // Si no hay versiones anteriores, comenzamos con la versión 1.01
+            newVersion = '1.01';
         }
 
         // Desactivar la versión anterior de la política
@@ -84,7 +87,6 @@ router.put('/update/:id', (req, res) => {
         });
     });
 });
-
 
 // Ruta para eliminar (lógicamente) una política de privacidad
 router.put('/deactivate/:id', (req, res) => {
