@@ -88,6 +88,21 @@ router.put('/update/:id', async (req, res) => {
     }
 });
 
+// Ruta para eliminar lógicamente una política de privacidad
+router.put('/deactivate/:id', (req, res) => {
+    const { id } = req.params;
+
+    const query = 'UPDATE politicas_privacidad SET estado = ? WHERE id = ?';
+
+    db.query(query, ['inactivo', id], (err, result) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).send('Error en el servidor');
+        }
+        res.status(200).send('Política de privacidad eliminada (lógicamente) con éxito');
+    });
+});
+
 // Ruta para obtener todas las políticas de privacidad activas
 router.get('/getpolitica', (req, res) => {
     const query = 'SELECT * FROM politicas_privacidad WHERE estado = "activo" ORDER BY numero_politica';
