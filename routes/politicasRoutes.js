@@ -2,7 +2,6 @@ const express = require('express');
 const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
 
-
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', async (req, res) => {
     const { titulo, contenido } = req.body;
@@ -12,8 +11,14 @@ router.post('/insert', async (req, res) => {
     }
 
     try {
-        // Obtener la última política activa
-        const lastActivePolicyQuery = `SELECT numero_politica, version FROM politicas_privacidad WHERE estado = 'activo' ORDER BY numero_politica DESC LIMIT 1`;
+        // Obtener la última política activa, ordenando por numero_politica y version
+        const lastActivePolicyQuery = `
+            SELECT numero_politica, version 
+            FROM politicas_privacidad 
+            WHERE estado = 'activo' 
+            ORDER BY numero_politica DESC, version DESC 
+            LIMIT 1
+        `;
         const [lastActivePolicy] = await db.query(lastActivePolicyQuery);
 
         let newNumeroPolitica = 1;
@@ -66,8 +71,7 @@ router.put('/update/:id', async (req, res) => {
         const deactivateQuery = `UPDATE politicas_privacidad SET estado = 'inactivo' WHERE id = ?`;
         await db.query(deactivateQuery, [id]);
 
-        // Calcular la nueva versión (por ejemplo: 2.1, 2.2, etc.)
-        // Incrementamos la versión en 0.1 respetando el tipo DECIMAL(5,1)
+        // Calcular la nueva versión, incrementando 0.1
         const newVersion = (parseFloat(version) + 0.1).toFixed(1);
 
         // Insertar una nueva política con la nueva versión
@@ -99,7 +103,7 @@ router.get('/getpolitica', (req, res) => {
 
 // Ruta para obtener todas las políticas (activas e inactivas)
 router.get('/getAllPoliticas', (req, res) => {
-    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica, CAST(version AS DECIMAL(5,2)) ASC';
+    const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica, CAST(version AS DECIMAL(5,1)) ASC';
 
     db.query(query, (err, results) => {
         if (err) {
