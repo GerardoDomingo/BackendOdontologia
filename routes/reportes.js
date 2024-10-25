@@ -74,6 +74,24 @@ router.get('/paciente/:id', (req, res) => {
     });
 });
 
+// Este endpoint actualizará los valores en la tabla 'config'
+router.post('/update-config', async (req, res) => {
+    const { settingName, settingValue } = req.body;
+  
+    if (!settingName || !settingValue) {
+      return res.status(400).json({ message: 'Nombre y valor de la configuración son requeridos.' });
+    }
+  
+    const updateConfigSql = 'UPDATE config SET setting_value = ? WHERE setting_name = ?';
+  
+    db.query(updateConfigSql, [settingValue, settingName], (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al actualizar la configuración.' });
+      }
+      return res.status(200).json({ message: 'Configuración actualizada exitosamente.' });
+    });
+  });
+  
 
 
 module.exports = router;
