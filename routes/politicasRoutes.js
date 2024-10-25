@@ -4,34 +4,18 @@ const router = express.Router();
 
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', async (req, res) => {
-    const { numero_politica, titulo, contenido } = req.body;
+    const { numero_politica, titulo, contenido, version } = req.body;
 
-    if (!titulo || !contenido) {
-        return res.status(400).send('Título y contenido son obligatorios.');
+    if (!numero_politica || !titulo || !contenido || !version) {
+        return res.status(400).send('Todos los campos son obligatorios.');
     }
 
     try {
-        // Obtener la versión máxima existente para la política
-        const maxPolicyQuery = `
-            SELECT MAX(CAST(version AS DECIMAL(5,1))) AS maxVersion
-            FROM politicas_privacidad
-            WHERE numero_politica = ?
-        `;
-        const [result] = await db.query(maxPolicyQuery, [numero_politica]);
-        const maxVersion = result[0].maxVersion;
-
-        // Definir la nueva versión como 1.0 si no existen versiones anteriores, o la siguiente entera si existen
-        const newVersion = maxVersion ? (Math.floor(maxVersion) + 1).toString() : "1.0";
-
-        // Desactivar todas las políticas previas de este número de política
-        await db.query(`UPDATE politicas_privacidad SET estado = 'inactivo' WHERE numero_politica = ?`, [numero_politica]);
-
-        // Insertar la nueva política con la versión y estado activos
         const insertQuery = `
-            INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version, fecha_creacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW())
+            INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
+            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.query(insertQuery, [numero_politica, titulo, contenido, newVersion]);
+        await db.query(insertQuery, [numero_politica, titulo, contenido, version]);
 
         res.status(200).send('Política insertada con éxito.');
     } catch (error) {
