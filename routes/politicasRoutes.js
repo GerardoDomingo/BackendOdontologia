@@ -56,24 +56,23 @@ router.put('/update/:id', async (req, res) => {
     }
 
     try {
-        // Obtener la política a actualizar
-        const getPolicyQuery = `SELECT numero_politica, version FROM politicas_privacidad WHERE id = ?`;
+        const getPolicyQuery = `SELECT version FROM politicas_privacidad WHERE id = ?`;
         const [policy] = await db.query(getPolicyQuery, [id]);
 
         if (policy.length === 0) {
             return res.status(404).send('Política no encontrada.');
         }
 
-        const { version } = policy[0];
+        const currentVersion = parseFloat(policy[0].version);
 
-        // Marcar la política actual como inactiva
+        // Marcar la versión actual como inactiva
         const deactivateQuery = `UPDATE politicas_privacidad SET estado = 'inactivo' WHERE id = ?`;
         await db.query(deactivateQuery, [id]);
 
-        // Calcular la nueva versión, incrementando 0.1
-        const newVersion = (parseFloat(version) + 0.1).toFixed(1);
+        // Nueva versión incrementada en 0.1
+        const newVersion = (currentVersion + 0.1).toFixed(1);
 
-        // Insertar una nueva política con la nueva versión
+        // Insertar nueva política con versión incrementada y estado activo
         const insertQuery = `
             INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version, fecha_creacion)
             VALUES (?, ?, ?, 'activo', ?, NOW())
@@ -86,6 +85,7 @@ router.put('/update/:id', async (req, res) => {
         res.status(500).send('Error al actualizar la política.');
     }
 });
+
 
 // Ruta para eliminar lógicamente una política de privacidad
 router.put('/deactivate/:id', (req, res) => {
