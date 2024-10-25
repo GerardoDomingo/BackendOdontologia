@@ -4,34 +4,33 @@ const router = express.Router();
 
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', async (req, res) => {
-    const { titulo, contenido } = req.body;
+    const { numero_politica, titulo, contenido } = req.body;
 
     if (!titulo || !contenido) {
         return res.status(400).send('Título y contenido son obligatorios.');
     }
 
     try {
-        // Obtener la última política activa, ordenando por numero_politica y version
-        const lastActivePolicyQuery = `
-            SELECT numero_politica, version 
-            FROM politicas_privacidad 
-            WHERE estado = 'activo' 
-            ORDER BY numero_politica DESC, version DESC 
-            LIMIT 1
-        `;
-        const [lastActivePolicy] = await db.query(lastActivePolicyQuery);
+        let newNumeroPolitica = numero_politica; // Permitir que el cliente proporcione el número de política
 
-        let newNumeroPolitica = 1;
-        let newVersion = 1.0; // Nueva política empezará con versión 1.0
+        // Si no se proporciona `numero_politica`, lo generamos automáticamente
+        if (!newNumeroPolitica) {
+            const lastActivePolicyQuery = `
+                SELECT numero_politica 
+                FROM politicas_privacidad 
+                ORDER BY numero_politica DESC 
+                LIMIT 1
+            `;
+            const [lastActivePolicy] = await db.query(lastActivePolicyQuery);
 
-        if (lastActivePolicy.length > 0) {
-            // Desactivar la política activa
-            const deactivateQuery = `UPDATE politicas_privacidad SET estado = 'inactivo' WHERE numero_politica = ? AND estado = 'activo'`;
-            await db.query(deactivateQuery, [lastActivePolicy[0].numero_politica]);
-
-            // Incrementar el número de la nueva política
-            newNumeroPolitica = lastActivePolicy[0].numero_politica + 1;
+            if (lastActivePolicy.length > 0) {
+                newNumeroPolitica = lastActivePolicy[0].numero_politica + 1; // Incrementar el número
+            } else {
+                newNumeroPolitica = 1; // Si no hay políticas previas, empezamos en 1
+            }
         }
+
+        const newVersion = 1.0; // Nueva política empezará con versión 1.0
 
         // Insertar nueva política
         const insertQuery = `
@@ -50,10 +49,10 @@ router.post('/insert', async (req, res) => {
 // Ruta para actualizar una política de privacidad
 router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
-    const { titulo, contenido } = req.body;
+    const { numero_politica, titulo, contenido } = req.body;
 
-    if (!titulo || !contenido) {
-        return res.status(400).send('Título y contenido son obligatorios.');
+    if (!titulo || !contenido || !numero_politica) {
+        return res.status(400).send('Número de política, título y contenido son obligatorios.');
     }
 
     try {
@@ -65,7 +64,7 @@ router.put('/update/:id', async (req, res) => {
             return res.status(404).send('Política no encontrada.');
         }
 
-        const { numero_politica, version } = policy[0];
+        const { version } = policy[0];
 
         // Marcar la política actual como inactiva
         const deactivateQuery = `UPDATE politicas_privacidad SET estado = 'inactivo' WHERE id = ?`;
