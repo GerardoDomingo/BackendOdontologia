@@ -47,20 +47,15 @@ router.put('/update/:id', (req, res) => {
         let newVersion;
 
         if (currentVersion) {
-            // Si la versión ya tiene un decimal o es un entero, incrementamos adecuadamente
+            // Convertimos la versión a un formato decimal con precisión de dos dígitos
             const versionParts = currentVersion.toFixed(2).split('.');
             const majorVersion = parseInt(versionParts[0], 10); // Parte entera
             let minorVersion = parseInt(versionParts[1], 10);   // Parte decimal
 
-            minorVersion += 1; // Incrementamos la parte decimal
+            // Incrementamos solo la parte decimal
+            minorVersion += 1;
 
-            // Si la parte decimal supera 99, reiniciamos y aumentamos la parte entera (aunque no se espera este caso, lo preveo)
-            if (minorVersion > 99) {
-                minorVersion = 0;
-                majorVersion += 1;
-            }
-
-            // Formatear la nueva versión asegurando dos decimales
+            // Formateamos la nueva versión con dos dígitos en la parte decimal
             newVersion = `${majorVersion}.${minorVersion.toString().padStart(2, '0')}`;
         } else {
             // Si no hay versiones anteriores, comenzamos con la versión 1.01
