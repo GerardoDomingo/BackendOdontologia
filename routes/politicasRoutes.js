@@ -25,7 +25,7 @@ router.post('/insert', async (req, res) => {
             // Si no existen políticas, la primera versión será "1.0"
             newVersion = "1.0";
         } else {
-            // Si existen políticas, incrementamos la versión principal
+            // Si existen políticas, incrementar la versión principal
             const nextVersionNumber = Math.floor(result[0].max_version) + 1;
             newVersion = `${nextVersionNumber}.0`;
         }
@@ -119,8 +119,8 @@ router.get('/getAllPoliticas', (req, res) => {
     const query = 'SELECT * FROM politicas_privacidad ORDER BY numero_politica, CAST(version AS DECIMAL(5,1)) ASC';
 
     db.promise().query(query)
-        .then(results => {
-            res.status(200).json(results[0]);
+        .then(([results]) => {
+            res.status(200).json(results);
         })
         .catch(err => {
             console.log(err);
