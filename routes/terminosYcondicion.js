@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
 
-// Ruta para insertar un nuevo término o condición
+// Ruta para insertar un nuevo término o condicióo
 router.post('/insert', async (req, res) => {
     const { numero_termino, titulo, contenido } = req.body;
 
