@@ -2,11 +2,12 @@ const express = require('express');
 const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
 
+
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', (req, res) => {
     const { numero_politica, titulo, contenido } = req.body;
 
-    // Verificar la versión más alta actual para asignar una nueva versión
+    // Verificar si ya existe alguna política con ese número
     const selectQuery = 'SELECT MAX(CAST(version AS DECIMAL(5,2))) AS maxVersion FROM politicas_privacidad WHERE numero_politica = ?';
 
     db.query(selectQuery, [numero_politica], (err, result) => {
@@ -19,30 +20,30 @@ router.post('/insert', (req, res) => {
         const currentVersion = result[0].maxVersion;
 
         if (currentVersion) {
-            // Incrementar solo la parte decimal correctamente
-            const versionParts = currentVersion.split('.'); 
-            const majorVersion = parseInt(versionParts[0], 10);
-            let minorVersion = parseInt(versionParts[1], 10);
-
-            // Incrementar la parte decimal
-            minorVersion += 1;
-
-            // Nueva versión formateada con dos decimales
-            newVersion = `${majorVersion}.${minorVersion.toString().padStart(2, '0')}`;
+            // Si existe una política con ese número, devolvemos un error (no se puede insertar el mismo número)
+            return res.status(400).send('Ya existe una política con ese número. No se puede insertar la misma política.');
         } else {
-            // Si no hay versiones previas, comenzamos con la versión 1.00
-            newVersion = '1.00';
-        }
+            // Si no hay versiones previas, comenzamos con la versión entera (1, 2, 3, etc.)
+            const selectMaxNumberQuery = 'SELECT MAX(numero_politica) AS maxNumero FROM politicas_privacidad';
+            db.query(selectMaxNumberQuery, (err, result) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).send('Error en el servidor al obtener el número de política máximo');
+                }
+                const newNumeroPolitica = result[0].maxNumero ? result[0].maxNumero + 1 : 1;
+                newVersion = `${newNumeroPolitica}.00`;
 
-        // Insertar la nueva política con la versión incrementada
-        const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
-        db.query(insertQuery, [numero_politica, titulo, contenido, 'activo', newVersion], (err, result) => {
-            if (err) {
-                console.log(err);
-                return res.status(500).send('Error en el servidor al insertar nueva política');
-            }
-            res.status(200).send(`Política de privacidad insertada con éxito, versión ${newVersion}`);
-        });
+                // Insertar la nueva política con versión entera
+                const insertQuery = 'INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version) VALUES (?, ?, ?, ?, ?)';
+                db.query(insertQuery, [newNumeroPolitica, titulo, contenido, 'activo', newVersion], (err, result) => {
+                    if (err) {
+                        console.log(err);
+                        return res.status(500).send('Error en el servidor al insertar nueva política');
+                    }
+                    res.status(200).send(`Política de privacidad insertada con éxito, número ${newNumeroPolitica}, versión ${newVersion}`);
+                });
+            });
+        }
     });
 });
 
@@ -79,7 +80,7 @@ router.put('/update/:id', (req, res) => {
         }
 
         // Desactivar todas las versiones anteriores de la política
-        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ? AND estado = "activo"';
+        const deactivateQuery = 'UPDATE politicas_privacidad SET estado = "inactivo" WHERE numero_politica = ?';
         db.query(deactivateQuery, [numero_politica], (err, result) => {
             if (err) {
                 console.log(err);
