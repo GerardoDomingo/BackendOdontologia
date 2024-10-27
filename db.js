@@ -2,7 +2,7 @@ const mysql = require('mysql2');
 
 // Crear un pool de conexiones a MySQL (Hostinger)
 const pool = mysql.createPool({
-  host: '193.203.166.102',  // Cambia por el host correcto de tu servidor
+  host: '193.203.166.102',  
   user: 'u666156220_carol',
   password: '20221058Emma',
   database: 'u666156220_db_carol',
