@@ -1,11 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require('../db');
 const axios = require('axios');
 const xss = require('xss');
 const { RateLimiterMemory } = require('rate-limiter-flexible');
 const logger = require('../utils/logger');
+const cookieParser = require('cookie-parser');
+
+router.use(cookieParser()); // Configuración de cookie-parser
+
+// Función para generar un token aleatorio seguro
+function generateToken() {
+    return crypto.randomBytes(64).toString('hex'); // Crea un token aleatorio
+}
 
 //Protección contra ataques de fuerza bruta
 const rateLimiter = new RateLimiterMemory({
@@ -110,8 +119,8 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Función para autenticar al usuario, manejar intentos fallidos y configurar la cookie de sesión
 async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res) {
-    // Obtener los valores de configuración para el número máximo de intentos y tiempo de bloqueo
     const MAX_ATTEMPTS = await getConfigValue('MAX_ATTEMPTS');
     const LOCK_TIME_MINUTES = await getConfigValue('LOCK_TIME_MINUTES');
     
@@ -198,20 +207,40 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
             });
         }
 
-        const clearAttemptsSql = `
-            DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
-        `;
-        db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
-            if (err) {
-                return res.status(500).json({ message: 'Error al limpiar los intentos fallidos.' });
-            }
-        });
+        // Si la contraseña es correcta, generar un token de sesión
+        const sessionToken = generateToken();
 
-        return res.status(200).json({
-            message: 'Inicio de sesión exitoso',
-            user: { nombre: usuario.nombre, email: usuario.email, tipo: tipoUsuario }
+        // Guardar el token en la BD en el campo `cookie`
+        const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
+        db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error al guardar el token de sesión.' });
+            }
+
+            // Configurar la cookie con los atributos de seguridad
+            res.cookie('session_token', sessionToken, {
+                httpOnly: true,        // No accesible desde JavaScript
+                secure: process.env.NODE_ENV === 'production', // Solo en HTTPS en producción
+                sameSite: 'Strict',    // Previene ataques CSRF
+                maxAge: 24 * 60 * 60 * 1000 // 1 día de duración
+            });
+
+            // Limpiar los intentos fallidos al iniciar sesión exitosamente
+            const clearAttemptsSql = `
+                DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+            `;
+            db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al limpiar los intentos fallidos.' });
+                }
+
+                // Respuesta de éxito
+                res.status(200).json({
+                    message: 'Inicio de sesión exitoso',
+                    user: { nombre: usuario.nombre, email: usuario.email, tipo: tipoUsuario }
+                });
+            });
         });
     });
 }
-
 module.exports = router;
