@@ -218,7 +218,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
             }
 
             // Configurar la cookie con los atributos de seguridad
-            res.cookie('session_token', sessionToken, {
+            res.cookie('cookie', sessionToken, {
                 httpOnly: true,        // No accesible desde JavaScript
                 secure: process.env.NODE_ENV === 'production', // Solo en HTTPS en producción
                 sameSite: 'Strict',    // Previene ataques CSRF
