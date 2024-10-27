@@ -18,9 +18,15 @@ app.use(
   })
 );
 
+// Configuración de CORS para permitir solicitudes desde ambos dominios de frontend
+app.use(cors({
+  origin: ['https://odontologiacarol.onrender.com', 'https://odontologiacarol.isoftuthh.com'], // Dominios permitidos
+  credentials: true  // Permitir el envío de cookies y credenciales
+}));
+
 // Configuración de middlewares
-app.use(cors());
 app.use(bodyParser.json());
+app.use(express.json());
 
 // Importar las rutas
 const userRoutes = require('./routes/userRoutes');
@@ -28,19 +34,19 @@ const Registrer = require('./routes/registrer');
 const politicasRoutes = require('./routes/politicasRoutes.js');
 const deslindeRoutes = require('./routes/deslindelegal.js');
 const terminosRoutes = require('./routes/terminosYcondicion.js');
-const perfil_empresa=require('./routes/perfilEmpresa.js');
-const reportes=require('./routes/reportes.js')
-const redes=require('./routes/redessociales.js');
+const perfil_empresa = require('./routes/perfilEmpresa.js');
+const reportes = require('./routes/reportes.js')
+const redes = require('./routes/redessociales.js');
 
-// Asignar las rutas a la aplicaciónes
+// Asignar las rutas a la aplicación
 app.use('/api', Registrer);
 app.use('/api/users', userRoutes); 
 app.use('/api/politicas', politicasRoutes);
 app.use('/api/deslinde', deslindeRoutes); 
 app.use('/api/termiCondicion', terminosRoutes); 
 app.use('/api/perfilEmpresa', perfil_empresa);
-app.use('/api/reportes',reportes);
-app.use('/api/redesSociales',redes);
+app.use('/api/reportes', reportes);
+app.use('/api/redesSociales', redes);
 
 // Iniciar el servidor
 app.listen(3001, () => {
