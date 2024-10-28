@@ -258,10 +258,8 @@ router.post('/logout', (req, res) => {
     `;
     db.query(query, [sessionToken, sessionToken], (err) => {
         if (err) {
-            // Si ocurre un error al intentar borrar el token en la base de datos
             return res.status(500).json({ message: 'Error al cerrar sesión.' });
         }
-        // Enviar respuesta de éxito cuando la sesión se ha cerrado correctamente
         return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
     });
 });
