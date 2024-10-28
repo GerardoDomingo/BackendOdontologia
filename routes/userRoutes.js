@@ -212,13 +212,12 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
-            console.log('Configurando cookie con sesión:', {
+            res.cookie('cookie', sessionToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Strict',
+                sameSite: 'Strict',
                 maxAge: 24 * 60 * 60 * 1000
             });
-            
             // Limpiar los intentos fallidos al iniciar sesión exitosamente
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
