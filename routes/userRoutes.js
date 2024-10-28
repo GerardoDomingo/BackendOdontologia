@@ -246,27 +246,29 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
 // En userRoutes.js o en un archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
+    const sessionToken = req.cookies.cookie;
+
+    if (!sessionToken) {
+        // No se encontró cookie; la sesión ya no está activa
+        return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
+    }
+
+    // Borrar la cookie del navegador
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
     });
 
-    // Elimina el token en la base de datos (opcional)
-    const sessionToken = req.cookies.cookie;
-    if (sessionToken) {
-        const query = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
-                       UPDATE administradores SET cookie = NULL WHERE cookie = ?;`;
-        db.query(query, [sessionToken, sessionToken], (err) => {
-            if (err) {
-                return res.status(500).json({ message: 'Error al cerrar sesión.' });
-            }
-            res.status(200).json({ message: 'Sesión cerrada exitosamente' });
-        });
-    } else {
-        res.status(400).json({ message: 'No se encontró una sesión activa' });
-    }
+    // Limpiar el token de la base de datos (opcional)
+    const query = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
+                   UPDATE administradores SET cookie = NULL WHERE cookie = ?;`;
+    db.query(query, [sessionToken, sessionToken], (err) => {
+        if (err) {
+            return res.status(500).json({ message: 'Error al cerrar sesión.' });
+        }
+        return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
+    });
 });
-
 
 module.exports = router;
