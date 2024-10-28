@@ -123,7 +123,7 @@ router.post('/login', async (req, res) => {
 async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res) {
     const MAX_ATTEMPTS = await getConfigValue('MAX_ATTEMPTS');
     const LOCK_TIME_MINUTES = await getConfigValue('LOCK_TIME_MINUTES');
-    
+
     const checkAttemptsSql = `
         SELECT * FROM login_attempts
         WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
@@ -209,22 +209,16 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
         // Si la contraseña es correcta, generar un token de sesión
         const sessionToken = generateToken();
-
-        // Guardar el token en la BD en el campo `cookie`
         const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
-            if (err) {
-                return res.status(500).json({ message: 'Error al guardar el token de sesión.' });
-            }
+            if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
-            // Configurar la cookie con los atributos de seguridad
             res.cookie('cookie', sessionToken, {
-                httpOnly: true,        // No accesible desde JavaScript
-                secure: process.env.NODE_ENV === 'production', // Solo en HTTPS en producción
-                sameSite: 'Strict',    // Previene ataques CSRF
-                maxAge: 24 * 60 * 60 * 1000 // 1 día de duración
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'Strict',
+                maxAge: 24 * 60 * 60 * 1000
             });
-
             // Limpiar los intentos fallidos al iniciar sesión exitosamente
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
@@ -244,26 +238,24 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
     });
 }
 
-// En userRoutes.js o en un archivo de rutas de autenticación
+// Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
-    const sessionToken = req.cookies.cookie;
+    const sessionToken = req.cookies.session_token;
 
     if (!sessionToken) {
-        // No se encontró cookie; la sesión ya no está activa
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
     // Borrar la cookie del navegador
-    res.clearCookie('cookie', {
+    res.clearCookie('session_token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
     });
 
-    // Limpiar el token de la base de datos (opcional)
-    const query = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
-                   UPDATE administradores SET cookie = NULL WHERE cookie = ?;`;
-    db.query(query, [sessionToken, sessionToken], (err) => {
+    // Limpiar el token de la base de datos
+    const query = 'UPDATE users SET session_token = NULL WHERE session_token = ?';
+    db.query(query, [sessionToken], (err) => {
         if (err) {
             return res.status(500).json({ message: 'Error al cerrar sesión.' });
         }
