@@ -238,14 +238,14 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
     });
 }
 
-// Archivo de rutas de autenticación
+// Ruta de cierre de sesión
 router.post('/logout', (req, res) => {
     const sessionToken = req.cookies.cookie;
 
     if (!sessionToken) {
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
-    // Borrar la cookie del navegador
+
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
