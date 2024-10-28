@@ -246,14 +246,13 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
 // En userRoutes.js o en un archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
-    // Borra la cookie en el cliente
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
     });
 
-    // Opción 1: Elimina el token en la base de datos
+    // Elimina el token en la base de datos (opcional)
     const sessionToken = req.cookies.cookie;
     if (sessionToken) {
         const query = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
@@ -268,5 +267,6 @@ router.post('/logout', (req, res) => {
         res.status(400).json({ message: 'No se encontró una sesión activa' });
     }
 });
+
 
 module.exports = router;
