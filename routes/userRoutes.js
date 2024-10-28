@@ -212,11 +212,11 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
-            res.cookie('cookie', sessionToken, {
+            console.log('Configurando cookie con sesión:', {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production', 
-                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Strict', // Usa 'None' si los dominios son distintos
-                maxAge: 24 * 60 * 60 * 1000 // 1 día de duración
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Strict',
+                maxAge: 24 * 60 * 60 * 1000
             });
             
             // Limpiar los intentos fallidos al iniciar sesión exitosamente
