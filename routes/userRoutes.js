@@ -212,12 +212,14 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
+            // Backend: Al iniciar sesión y establecer la cookie
             res.cookie('cookie', sessionToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Strict',
-                maxAge: 24 * 60 * 60 * 1000
+                secure: process.env.NODE_ENV === 'production', // true en producción
+                sameSite: 'Lax', // 'Strict' puede bloquear cookies en algunas configuraciones
+                maxAge: 24 * 60 * 60 * 1000 // Duración de 1 día
             });
+
             // Limpiar los intentos fallidos al iniciar sesión exitosamente
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
@@ -239,33 +241,36 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
 // Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
-    console.log('Solicitando cierre de sesión...'); // Verificar que se recibe la solicitud
-    console.log('Token de sesión recibido:', req.cookies.cookie); // Verificar el valor de la cookie
+    console.log('Solicitando cierre de sesión...'); // Verificar solicitud de cierre
+    console.log('Token de sesión recibido:', req.cookies.cookie); // Revisar cookie recibida
 
     const sessionToken = req.cookies.cookie;
+
     if (!sessionToken) {
+        console.log('Sesión no activa o ya cerrada'); // Mensaje de depuración adicional
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
-    // Borrar la cookie
+    // Borrar la cookie en la respuesta
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
+        sameSite: 'Lax', // Aseguramos que coincida con la configuración de login
     });
 
+    // Limpiar el token de la base de datos
     const query = `
         UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
         UPDATE administradores SET cookie = NULL WHERE cookie = ?;
     `;
     db.query(query, [sessionToken, sessionToken], (err) => {
         if (err) {
+            console.error('Error al limpiar token en la base de datos:', err);
             return res.status(500).json({ message: 'Error al cerrar sesión.' });
         }
+        console.log('Sesión cerrada exitosamente en la base de datos.');
         return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
     });
 });
-
-
 
 module.exports = router;
