@@ -47,7 +47,6 @@ router.post('/login', async (req, res) => {
         const MAX_ATTEMPTS = await getConfigValue('MAX_ATTEMPTS');
         const LOCK_TIME_MINUTES = await getConfigValue('LOCK_TIME_MINUTES');
 
-        // Limitar los intentos de inicio de sesión
         try {
             await rateLimiter.consume(ipAddress);
         } catch {
@@ -215,10 +214,11 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
             res.cookie('cookie', sessionToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Strict',
-                maxAge: 24 * 60 * 60 * 1000
+                secure: process.env.NODE_ENV === 'production', 
+                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Strict', // Usa 'None' si los dominios son distintos
+                maxAge: 24 * 60 * 60 * 1000 // 1 día de duración
             });
+            
             // Limpiar los intentos fallidos al iniciar sesión exitosamente
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
@@ -241,39 +241,37 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 // Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
     console.log('Solicitud de cierre de sesión recibida.');
+    console.log('Token de sesión recibido en la cookie:', req.cookies.cookie);
 
-    const sessionToken = req.cookies.cookie; // Verificar la cookiee
-    console.log('Token de sesión recibido en la cookie:', sessionToken);
+    const sessionToken = req.cookies.cookie;
 
     if (!sessionToken) {
         console.log('No se encontró token de sesión. La sesión ya está cerrada o no existe.');
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
-    // Borrar la cookie en la respuesta para el navegador
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
+        sameSite: 'None'
     });
     console.log('Cookie borrada en la respuesta.');
-
-    // Limpia el token en la base de datos para ambos roles
+    // Limpia el token en la base de datos
     const query = `
         UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
         UPDATE administradores SET cookie = NULL WHERE cookie = ?;
     `;
-    db.query(query, [sessionToken, sessionToken], (err, results) => {
+    db.query(query, [sessionToken, sessionToken], (err) => {
         if (err) {
             console.error('Error al ejecutar la consulta en la base de datos:', err);
             return res.status(500).json({ message: 'Error al cerrar sesión.' });
         }
 
         console.log('Resultado de la consulta de cierre de sesión en la base de datos:', results);
-        console.log('Cierre de sesión exitoso.');
         return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
     });
 });
+
 
 
 module.exports = router;
