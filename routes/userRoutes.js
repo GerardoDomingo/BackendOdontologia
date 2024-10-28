@@ -239,34 +239,33 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
 // Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
-    const sessionToken = req.cookies.cookie;
+    console.log('Solicitando cierre de sesión...'); // Verificar que se recibe la solicitud
+    console.log('Token de sesión recibido:', req.cookies.cookie); // Verificar el valor de la cookie
 
-    // Si no hay token de sesión, devuelve que ya está cerrada
+    const sessionToken = req.cookies.cookie;
     if (!sessionToken) {
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
-    // Borra la cookie en la respuesta para el navegador
+    // Borrar la cookie
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
     });
 
-    // Limpia el token en la base de datos para ambos roles
     const query = `
         UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
         UPDATE administradores SET cookie = NULL WHERE cookie = ?;
     `;
     db.query(query, [sessionToken, sessionToken], (err) => {
         if (err) {
-            // Error al limpiar el token en la base de datos
             return res.status(500).json({ message: 'Error al cerrar sesión.' });
         }
-        // Responder que la sesión fue cerrada exitosamente
         return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
     });
 });
+
 
 
 module.exports = router;
