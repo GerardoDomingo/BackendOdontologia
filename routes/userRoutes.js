@@ -242,7 +242,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 router.post('/logout', (req, res) => {
     console.log('Solicitud de cierre de sesión recibida.');
 
-    const sessionToken = req.cookies.cookie; // Verificar la cookie
+    const sessionToken = req.cookies.cookie; // Verificar la cookiee
     console.log('Token de sesión recibido en la cookie:', sessionToken);
 
     if (!sessionToken) {
