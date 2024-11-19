@@ -2,12 +2,12 @@ const express = require('express');
 const db = require('../db'); // Asegúrate de que la ruta a tu conexión de base de datos sea correcta
 const router = express.Router();
 
-// Ruta para insertar un nuevo término o condicióo
+// Ruta para insertar un nuevo término o condición
 router.post('/insert', async (req, res) => {
-    const { numero_termino, titulo, contenido } = req.body;
+    const { titulo, contenido } = req.body;
 
-    if (!numero_termino || !titulo || !contenido) {
-        return res.status(400).send('Todos los campos son obligatorios.');
+    if (!titulo || !contenido) {
+        return res.status(400).send('Título y contenido son obligatorios.');
     }
 
     try {
@@ -30,11 +30,12 @@ router.post('/insert', async (req, res) => {
             newVersion = `${nextVersionNumber}.0`;
         }
 
+        // Insertar el nuevo término con versión incrementada y estado activo
         const insertQuery = `
             INSERT INTO terminos_condiciones (numero_termino, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+            VALUES (0, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_termino, titulo, contenido, newVersion]);
+        await db.promise().query(insertQuery, [titulo, contenido, newVersion]);
 
         res.status(200).send('Término insertado con éxito.');
     } catch (error) {
@@ -46,10 +47,10 @@ router.post('/insert', async (req, res) => {
 // Ruta para actualizar un término existente
 router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
-    const { numero_termino, titulo, contenido } = req.body;
+    const { titulo, contenido } = req.body;
 
-    if (!titulo || !contenido || !numero_termino) {
-        return res.status(400).send('Número de término, título y contenido son obligatorios.');
+    if (!titulo || !contenido) {
+        return res.status(400).send('Título y contenido son obligatorios.');
     }
 
     try {
@@ -70,9 +71,9 @@ router.put('/update/:id', async (req, res) => {
         // Insertar nuevo término con versión incrementada y estado activo
         const insertQuery = `
             INSERT INTO terminos_condiciones (numero_termino, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+            VALUES (0, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_termino, titulo, contenido, newVersion]);
+        await db.promise().query(insertQuery, [titulo, contenido, newVersion]);
 
         res.status(200).send('Término actualizado correctamente.');
     } catch (error) {
@@ -80,6 +81,7 @@ router.put('/update/:id', async (req, res) => {
         res.status(500).send('Error al actualizar el término.');
     }
 });
+
 
 // Ruta para obtener un término específico por ID
 router.get('/get/:id', async (req, res) => {

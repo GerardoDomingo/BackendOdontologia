@@ -6,10 +6,10 @@ const router = express.Router();
 
 // Ruta para insertar un nuevo deslinde
 router.post('/insert', async (req, res) => {
-    const { numero_deslinde, titulo, contenido } = req.body;
+    const { titulo, contenido } = req.body;
 
-    if (!numero_deslinde || !titulo || !contenido) {
-        return res.status(400).send('Todos los campos son obligatorios.');
+    if (!titulo || !contenido) {
+        return res.status(400).send('El título y el contenido son obligatorios.');
     }
 
     try {
@@ -34,9 +34,9 @@ router.post('/insert', async (req, res) => {
 
         const insertQuery = `
             INSERT INTO deslinde (numero_deslinde, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+            VALUES (0, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_deslinde, titulo, contenido, newVersion]);
+        await db.promise().query(insertQuery, [titulo, contenido, newVersion]);
 
         res.status(200).send('Deslinde insertado con éxito.');
     } catch (error) {
@@ -48,10 +48,10 @@ router.post('/insert', async (req, res) => {
 // Ruta para actualizar un deslinde existente
 router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
-    const { numero_deslinde, titulo, contenido } = req.body;
+    const { titulo, contenido } = req.body;
 
-    if (!titulo || !contenido || !numero_deslinde) {
-        return res.status(400).send('Número de deslinde, título y contenido son obligatorios.');
+    if (!titulo || !contenido) {
+        return res.status(400).send('El título y el contenido son obligatorios.');
     }
 
     try {
@@ -72,9 +72,9 @@ router.put('/update/:id', async (req, res) => {
         // Insertar nuevo deslinde con versión incrementada y estado activo
         const insertQuery = `
             INSERT INTO deslinde (numero_deslinde, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+            VALUES (0, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_deslinde, titulo, contenido, newVersion]);
+        await db.promise().query(insertQuery, [titulo, contenido, newVersion]);
 
         res.status(200).send('Deslinde actualizado correctamente.');
     } catch (error) {
@@ -82,6 +82,7 @@ router.put('/update/:id', async (req, res) => {
         res.status(500).send('Error al actualizar el deslinde.');
     }
 });
+
 
 // Ruta para obtener un deslinde específico por ID
 router.get('/get/:id', async (req, res) => {
