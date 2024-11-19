@@ -4,10 +4,11 @@ const router = express.Router();
 //POLITICAS
 // Ruta para insertar una nueva política de privacidad
 router.post('/insert', async (req, res) => {
-    const { numero_politica, titulo, contenido } = req.body;
+    const { titulo, contenido } = req.body;
 
-    if (!numero_politica || !titulo || !contenido) {
-        return res.status(400).send('Todos los campos son obligatorios.');
+    // Validar los campos requeridos
+    if (!titulo || !contenido) {
+        return res.status(400).send('El título y el contenido son obligatorios.');
     }
 
     try {
@@ -32,9 +33,11 @@ router.post('/insert', async (req, res) => {
 
         const insertQuery = `
             INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+            VALUES (0, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_politica, titulo, contenido, newVersion]);
+
+        // Inserción de la nueva política con número de política fijo en 0
+        await db.promise().query(insertQuery, [titulo, contenido, newVersion]);
 
         res.status(200).send('Política insertada con éxito.');
     } catch (error) {
@@ -42,6 +45,7 @@ router.post('/insert', async (req, res) => {
         res.status(500).send('Error al insertar la política.');
     }
 });
+
 
 // Ruta para actualizar una política existente
 router.put('/update/:id', async (req, res) => {
