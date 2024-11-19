@@ -50,10 +50,11 @@ router.post('/insert', async (req, res) => {
 // Ruta para actualizar una política existente
 router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
-    const { numero_politica, titulo, contenido } = req.body;
+    const { titulo, contenido } = req.body;
 
-    if (!titulo || !contenido || !numero_politica) {
-        return res.status(400).send('Número de política, título y contenido son obligatorios.');
+    // Validar que título y contenido sean enviados
+    if (!titulo || !contenido) {
+        return res.status(400).send('El título y el contenido son obligatorios.');
     }
 
     try {
@@ -66,17 +67,17 @@ router.put('/update/:id', async (req, res) => {
         }
 
         const currentVersion = parseFloat(policy[0].version);
-        const newVersion = (currentVersion + 0.1).toFixed(1); // Nueva versión aumentada en 0.1
+        const newVersion = (currentVersion + 0.1).toFixed(1); // Nueva versión incrementada en 0.1
 
-        // Desactivar la política actual antes de insertar la nueva
+        // Desactivar la política actual
         await db.promise().query(`UPDATE politicas_privacidad SET estado = 'inactivo' WHERE id = ?`, [id]);
 
-        // Insertar nueva política con versión incrementada y estado activo
+        // Insertar la nueva política con versión incrementada y estado activo
         const insertQuery = `
             INSERT INTO politicas_privacidad (numero_politica, titulo, contenido, estado, version, fecha_creacion, fecha_actualizacion)
-            VALUES (?, ?, ?, 'activo', ?, NOW(), NOW())
+            VALUES (0, ?, ?, 'activo', ?, NOW(), NOW())
         `;
-        await db.promise().query(insertQuery, [numero_politica, titulo, contenido, newVersion]);
+        await db.promise().query(insertQuery, [titulo, contenido, newVersion]);
 
         res.status(200).send('Política actualizada correctamente.');
     } catch (error) {
