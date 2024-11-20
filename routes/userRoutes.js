@@ -122,6 +122,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
         ORDER BY fecha_hora DESC LIMIT 1
     `;
+
     db.query(checkAttemptsSql, [usuario.id, ipAddress], async (err, attemptsResult) => {
         if (err) {
             return res.status(500).json({ message: 'Error al verificar intentos fallidos.' });
@@ -129,44 +130,55 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
 
         const lastAttempt = attemptsResult[0];
 
-        if (lastAttempt && lastAttempt.fecha_bloqueo && new Date(lastAttempt.fecha_bloqueo) > new Date()) {
-            return res.status(429).json({
-                message: `Cuenta bloqueada hasta ${new Date(lastAttempt.fecha_bloqueo).toLocaleString()}.`,
-                lockStatus: true,
-                lockUntil: lastAttempt.fecha_bloqueo,
-            });
+        // Verificar si la cuenta está bloqueada
+        if (lastAttempt && lastAttempt.fecha_bloqueo) {
+            const bloqueoActivo = new Date(lastAttempt.fecha_bloqueo) > new Date();
+            if (bloqueoActivo) {
+                return res.status(429).json({
+                    message: `Cuenta bloqueada hasta ${new Date(lastAttempt.fecha_bloqueo).toLocaleString()}.`,
+                    lockStatus: true,
+                    lockUntil: lastAttempt.fecha_bloqueo,
+                });
+            }
         }
 
-        // Verificar intentos fallidos
+        // Verificar la contraseña
         const isMatch = await bcrypt.compare(password, usuario.password);
-        if (!isMatch) {
-            let newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
-            let now = new Date();
-            now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
-            const fechaHora = now.toISOString();
+        let now = new Date();
+        now.setHours(now.getHours() - 6); // Ajustar fecha actual
+        const fechaHora = now.toISOString();
 
+        if (!isMatch) {
+            // Incrementar intentos fallidos
+            const newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
             let newFechaBloqueo = null;
 
             if (newFailedAttempts >= MAX_ATTEMPTS) {
+                // Calcular fecha de bloqueo
                 let bloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
-                bloqueo.setHours(bloqueo.getHours() - 6); // Restar 6 horas a la fecha de bloqueo
+                bloqueo.setHours(bloqueo.getHours() - 6); // Ajustar fecha de bloqueo
                 newFechaBloqueo = bloqueo.toISOString();
             }
 
+            // Actualizar intentos fallidos en la base de datos
             const attemptSql = lastAttempt
-                ? `UPDATE login_attempts SET intentos_fallidos = ?, fecha_bloqueo = ?, fecha_hora = ? WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?`
-                : `INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo, fecha_hora) VALUES (?, ?, 0, ?, ?, ?)`;
+                ? `UPDATE login_attempts 
+                   SET intentos_fallidos = ?, fecha_bloqueo = ?, fecha_hora = ? 
+                   WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?`
+                : `INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo, fecha_hora) 
+                   VALUES (?, ?, 0, ?, ?, ?)`;
 
-            db.query(
-                attemptSql,
-                lastAttempt ? [newFailedAttempts, newFechaBloqueo, fechaHora, usuario.id, ipAddress] : [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo, fechaHora],
-                (err) => {
-                    if (err) {
-                        return res.status(500).json({ message: 'Error al registrar intento fallido.' });
-                    }
+            const params = lastAttempt
+                ? [newFailedAttempts, newFechaBloqueo, fechaHora, usuario.id, ipAddress]
+                : [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo, fechaHora];
+
+            db.query(attemptSql, params, (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al registrar intento fallido.' });
                 }
-            );
+            });
 
+            // Responder con el estado actualizado
             return res.status(401).json({
                 message: 'Contraseña incorrecta.',
                 failedAttempts: newFailedAttempts,
@@ -174,12 +186,16 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             });
         }
 
-        // Login exitoso
+        // Login exitoso: limpiar intentos fallidos
         const sessionToken = generateToken();
-        const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
+        const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} 
+                                SET cookie = ? 
+                                WHERE id = ?`;
+
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
+            // Configurar cookie de sesión
             res.cookie('cookie', sessionToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -187,8 +203,10 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
                 maxAge: 24 * 60 * 60 * 1000,
             });
 
+            // Limpiar registros de intentos fallidos
             const clearAttemptsSql = `
-                DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
+                DELETE FROM login_attempts 
+                WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
             `;
             db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
                 if (err) {
