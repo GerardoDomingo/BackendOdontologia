@@ -128,13 +128,11 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         }
 
         const now = new Date();
-        now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
         const lastAttempt = attemptsResult[0];
 
         // Verificar si está bloqueado
         if (lastAttempt && lastAttempt.fecha_bloqueo) {
             const fechaBloqueo = new Date(lastAttempt.fecha_bloqueo);
-            fechaBloqueo.setHours(fechaBloqueo.getHours() - 6); // Restar 6 horas a la fecha de bloqueo registrada
             if (now < fechaBloqueo) {
                 return res.status(429).json({
                     message: `Cuenta bloqueada hasta ${fechaBloqueo.toLocaleString()}.`,
@@ -152,7 +150,6 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             let newFechaBloqueo = null;
             if (failedAttempts >= MAX_ATTEMPTS) {
                 const bloqueo = new Date(now.getTime() + LOCK_TIME_MINUTES * 60 * 1000);
-                bloqueo.setHours(bloqueo.getHours() - 6); // Restar 6 horas a la fecha de bloqueo
                 newFechaBloqueo = bloqueo.toISOString();
             }
 
