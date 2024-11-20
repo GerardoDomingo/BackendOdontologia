@@ -222,9 +222,9 @@ router.get('/checkAuth', (req, res) => {
     }
 
     const query = `
-        SELECT * FROM administradores WHERE cookie = ? 
+        SELECT id, nombre, email, 'administrador' AS tipo FROM administradores WHERE cookie = ? 
         UNION 
-        SELECT * FROM pacientes WHERE cookie = ?
+        SELECT id, nombre, email, 'paciente' AS tipo FROM pacientes WHERE cookie = ?
     `;
 
     db.query(query, [sessionToken, sessionToken], (err, results) => {
