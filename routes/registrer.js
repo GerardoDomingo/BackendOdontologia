@@ -432,6 +432,7 @@ router.post('/send-verification-code', async (req, res) => {
 
         db.query(findUserSql, [email, email], (err, result) => {
             if (err) {
+                console.error('Error al buscar el usuario:', err);
                 return res.status(500).json({ message: 'Error en el servidor.' });
             }
 
@@ -439,7 +440,7 @@ router.post('/send-verification-code', async (req, res) => {
                 return res.status(404).json({ message: 'Usuario no encontrado.' });
             }
 
-            const userType = result[0].userType; // Determinar si es paciente o administrador
+            const userType = result[0].userType;
 
             // Generar código de verificación
             const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -454,6 +455,7 @@ router.post('/send-verification-code', async (req, res) => {
 
             db.query(updateCodeSql, [verificationCode, codeExpiration, email], (err) => {
                 if (err) {
+                    console.error('Error al guardar el código:', err);
                     return res.status(500).json({ message: 'Error al guardar el código de verificación.' });
                 }
 
@@ -474,6 +476,7 @@ router.post('/send-verification-code', async (req, res) => {
 
                 transporter.sendMail(mailOptions, (err) => {
                     if (err) {
+                        console.error('Error al enviar el correo:', err);
                         return res.status(500).json({ message: 'Error al enviar el correo.' });
                     }
 
@@ -502,6 +505,7 @@ router.post('/verify-verification-code', async (req, res) => {
 
         db.query(findUserSql, [email, email], (err, result) => {
             if (err) {
+                console.error('Error al buscar el usuario:', err);
                 return res.status(500).json({ message: 'Error en el servidor.' });
             }
 
@@ -514,10 +518,12 @@ router.post('/verify-verification-code', async (req, res) => {
 
             // Verificar el código y su expiración
             if (user.token_verificacion !== code) {
+                console.error('Código incorrecto.');
                 return res.status(400).json({ message: 'Código incorrecto.' });
             }
 
             if (new Date() > new Date(user.token_expiracion)) {
+                console.error('El código ha expirado.');
                 return res.status(400).json({ message: 'El código ha expirado.' });
             }
 
@@ -530,6 +536,7 @@ router.post('/verify-verification-code', async (req, res) => {
 
             db.query(clearCodeSql, [email], (err) => {
                 if (err) {
+                    console.error('Error al limpiar el código:', err);
                     return res.status(500).json({ message: 'Error al limpiar el código de verificación.' });
                 }
 
@@ -541,5 +548,6 @@ router.post('/verify-verification-code', async (req, res) => {
         res.status(500).json({ message: 'Error en el servidor.' });
     }
 });
+
 
 module.exports = router;
