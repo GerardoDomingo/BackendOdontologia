@@ -417,5 +417,129 @@ router.post('/verify-token', (req, res) => {
     });
 });
 
+router.post('/send-verification-code', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Verificar si el usuario es paciente o administrador
+        const findUserSql = `
+            SELECT 'pacientes' AS userType, email 
+            FROM pacientes WHERE email = ? 
+            UNION 
+            SELECT 'administradores' AS userType, email 
+            FROM administradores WHERE email = ?
+        `;
+
+        db.query(findUserSql, [email, email], (err, result) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error en el servidor.' });
+            }
+
+            if (result.length === 0) {
+                return res.status(404).json({ message: 'Usuario no encontrado.' });
+            }
+
+            const userType = result[0].userType; // Determinar si es paciente o administrador
+
+            // Generar código de verificación
+            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const codeExpiration = new Date(Date.now() + 10 * 60000); // Expira en 10 minutos
+
+            // Actualizar la tabla correspondiente
+            const updateCodeSql = `
+                UPDATE ${userType} 
+                SET token_verificacion = ?, token_expiracion = ? 
+                WHERE email = ?
+            `;
+
+            db.query(updateCodeSql, [verificationCode, codeExpiration, email], (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al guardar el código de verificación.' });
+                }
+
+                // Enviar el código por correo
+                const mailOptions = {
+                    from: 'odontologiacarol2024@gmail.com',
+                    to: email,
+                    subject: 'Código de Verificación - Odontología Carol',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; text-align: center;">
+                            <h1>Odontología Carol</h1>
+                            <p>Tu código de verificación es:</p>
+                            <p style="font-size: 24px; font-weight: bold;">${verificationCode}</p>
+                            <p>Este código expira en 10 minutos.</p>
+                        </div>
+                    `,
+                };
+
+                transporter.sendMail(mailOptions, (err) => {
+                    if (err) {
+                        return res.status(500).json({ message: 'Error al enviar el correo.' });
+                    }
+
+                    res.status(200).json({ message: 'Código de verificación enviado al correo.' });
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Error al enviar el código:', error);
+        res.status(500).json({ message: 'Error en el servidor.' });
+    }
+});
+
+router.post('/verify-verification-code', async (req, res) => {
+    const { email, code } = req.body;
+
+    try {
+        // Verificar si el email pertenece a un paciente o administrador
+        const findUserSql = `
+            SELECT 'pacientes' AS userType, token_verificacion, token_expiracion 
+            FROM pacientes WHERE email = ? 
+            UNION 
+            SELECT 'administradores' AS userType, token_verificacion, token_expiracion 
+            FROM administradores WHERE email = ?
+        `;
+
+        db.query(findUserSql, [email, email], (err, result) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error en el servidor.' });
+            }
+
+            if (result.length === 0) {
+                return res.status(404).json({ message: 'Usuario no encontrado.' });
+            }
+
+            const user = result[0];
+            const userType = user.userType;
+
+            // Verificar el código y su expiración
+            if (user.token_verificacion !== code) {
+                return res.status(400).json({ message: 'Código incorrecto.' });
+            }
+
+            if (new Date() > new Date(user.token_expiracion)) {
+                return res.status(400).json({ message: 'El código ha expirado.' });
+            }
+
+            // Limpiar el código de la tabla correspondiente
+            const clearCodeSql = `
+                UPDATE ${userType} 
+                SET token_verificacion = NULL, token_expiracion = NULL 
+                WHERE email = ?
+            `;
+
+            db.query(clearCodeSql, [email], (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al limpiar el código de verificación.' });
+                }
+
+                res.status(200).json({ message: 'Código verificado correctamente.' });
+            });
+        });
+    } catch (error) {
+        console.error('Error al verificar el código:', error);
+        res.status(500).json({ message: 'Error en el servidor.' });
+    }
+});
 
 module.exports = router;
