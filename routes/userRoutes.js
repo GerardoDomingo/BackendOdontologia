@@ -213,37 +213,47 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
     });
 }
 
-// Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
-    console.log('Solicitando cierre de sesión...'); // Verificar solicitud de cierre
-    console.log('Token de sesión recibido:', req.cookies.cookie); // Revisar cookie recibida
+    console.log('Solicitando cierre de sesión...');
 
-    const sessionToken = req.cookies.cookie;
+    const sessionToken = req.cookies?.cookie;
 
     if (!sessionToken) {
-        console.log('Sesión no activa o ya cerrada'); // Mensaje de depuración adicional
+        console.log('Sesión no activa o ya cerrada');
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
+
+    console.log('Token de sesión recibido:', sessionToken);
 
     // Borrar la cookie en la respuesta
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Lax', // Aseguramos que coincida con la configuración de login
+        sameSite: 'Lax',
     });
 
-    // Limpiar el token de la base de datos
-    const query = `
-        UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
-        UPDATE administradores SET cookie = NULL WHERE cookie = ?;
-    `;
-    db.query(query, [sessionToken, sessionToken], (err) => {
+    // Limpia el token en la base de datos
+    const queryPacientes = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?`;
+    const queryAdministradores = `UPDATE administradores SET cookie = NULL WHERE cookie = ?`;
+
+    db.query(queryPacientes, [sessionToken], (err, resultPacientes) => {
         if (err) {
-            console.error('Error al limpiar token en la base de datos:', err);
-            return res.status(500).json({ message: 'Error al cerrar sesión.' });
+            console.error('Error al limpiar token en la tabla pacientes:', err);
+            return res.status(500).json({ message: 'Error al cerrar sesión (pacientes).' });
         }
-        console.log('Sesión cerrada exitosamente en la base de datos.');
-        return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
+
+        console.log('Token eliminado en la tabla pacientes:', resultPacientes.affectedRows);
+
+        db.query(queryAdministradores, [sessionToken], (err, resultAdministradores) => {
+            if (err) {
+                console.error('Error al limpiar token en la tabla administradores:', err);
+                return res.status(500).json({ message: 'Error al cerrar sesión (administradores).' });
+            }
+
+            console.log('Token eliminado en la tabla administradores:', resultAdministradores.affectedRows);
+
+            return res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
+        });
     });
 });
 
