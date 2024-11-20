@@ -127,12 +127,14 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             return res.status(500).json({ message: 'Error al verificar intentos fallidos.' });
         }
 
+        const now = new Date();
+        now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
         const lastAttempt = attemptsResult[0];
 
-        // Check if the account is currently locked
+        // Verificar si está bloqueado
         if (lastAttempt && lastAttempt.fecha_bloqueo) {
-            const now = new Date();
             const fechaBloqueo = new Date(lastAttempt.fecha_bloqueo);
+            fechaBloqueo.setHours(fechaBloqueo.getHours() - 6); // Restar 6 horas a la fecha de bloqueo registrada
             if (now < fechaBloqueo) {
                 return res.status(429).json({
                     message: `Cuenta bloqueada hasta ${fechaBloqueo.toLocaleString()}.`,
@@ -142,37 +144,34 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             }
         }
 
-        // Verificar intentos fallidos
+        // Verificar la contraseña
         const isMatch = await bcrypt.compare(password, usuario.password);
         if (!isMatch) {
-            let newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
-            let now = new Date();
-            now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
-            const fechaHora = now.toISOString();
+            const failedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
 
             let newFechaBloqueo = null;
-
-            if (newFailedAttempts >= MAX_ATTEMPTS) {
-                const bloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
+            if (failedAttempts >= MAX_ATTEMPTS) {
+                const bloqueo = new Date(now.getTime() + LOCK_TIME_MINUTES * 60 * 1000);
                 bloqueo.setHours(bloqueo.getHours() - 6); // Restar 6 horas a la fecha de bloqueo
                 newFechaBloqueo = bloqueo.toISOString();
             }
 
+            // Insertar o actualizar el intento fallido
             const attemptSql = lastAttempt
                 ? `UPDATE login_attempts SET intentos_fallidos = ?, fecha_bloqueo = ?, fecha_hora = ? WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?`
                 : `INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo, fecha_hora) VALUES (?, ?, 0, ?, ?, ?)`;
 
-            db.query(
-                attemptSql,
-                lastAttempt ? [newFailedAttempts, newFechaBloqueo, fechaHora, usuario.id, ipAddress] : [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo, fechaHora],
-                (err) => {
-                    if (err) {
-                        return res.status(500).json({ message: 'Error al registrar intento fallido.' });
-                    }
-                }
-            );
+            const params = lastAttempt
+                ? [failedAttempts, newFechaBloqueo, now.toISOString(), usuario.id, ipAddress]
+                : [usuario.id, ipAddress, failedAttempts, newFechaBloqueo, now.toISOString()];
 
-            if (newFailedAttempts >= MAX_ATTEMPTS) {
+            db.query(attemptSql, params, (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Error al registrar intento fallido.' });
+                }
+            });
+
+            if (failedAttempts >= MAX_ATTEMPTS) {
                 return res.status(429).json({
                     message: `Cuenta bloqueada hasta ${newFechaBloqueo}.`,
                     lockStatus: true,
@@ -182,7 +181,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
 
             return res.status(401).json({
                 message: 'Contraseña incorrecta.',
-                failedAttempts: newFailedAttempts,
+                failedAttempts,
                 lockUntil: newFechaBloqueo,
             });
         }
