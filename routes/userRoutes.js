@@ -148,7 +148,9 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             let newFechaBloqueo = null;
 
             if (newFailedAttempts >= MAX_ATTEMPTS) {
-                newFechaBloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000).toISOString();
+                let bloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
+                bloqueo.setHours(bloqueo.getHours() - 6); // Restar 6 horas a la fecha de bloqueo
+                newFechaBloqueo = bloqueo.toISOString();
             }
 
             const attemptSql = lastAttempt
@@ -201,6 +203,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         });
     });
 }
+
 // Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
     console.log('Solicitando cierre de sesión...'); // Verificar solicitud de cierre
