@@ -215,17 +215,17 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
 
 router.post('/logout', (req, res) => {
     console.log('Solicitando cierre de sesión...');
-
     const sessionToken = req.cookies?.cookie;
 
+    // Verifica si se recibió la cookie
     if (!sessionToken) {
-        console.log('Sesión no activa o ya cerrada');
+        console.log('No se recibió una cookie en la solicitud.');
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
     console.log('Token de sesión recibido:', sessionToken);
 
-    // Borrar la cookie en la respuesta
+    // Borra la cookie en la respuesta
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -236,22 +236,31 @@ router.post('/logout', (req, res) => {
     const queryPacientes = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?`;
     const queryAdministradores = `UPDATE administradores SET cookie = NULL WHERE cookie = ?`;
 
+    // Elimina la cookie en pacientes
     db.query(queryPacientes, [sessionToken], (err, resultPacientes) => {
         if (err) {
             console.error('Error al limpiar token en la tabla pacientes:', err);
             return res.status(500).json({ message: 'Error al cerrar sesión (pacientes).' });
         }
 
-        console.log('Token eliminado en la tabla pacientes:', resultPacientes.affectedRows);
+        console.log(`Pacientes afectados: ${resultPacientes.affectedRows}`);
 
+        // Elimina la cookie en administradores
         db.query(queryAdministradores, [sessionToken], (err, resultAdministradores) => {
             if (err) {
                 console.error('Error al limpiar token en la tabla administradores:', err);
                 return res.status(500).json({ message: 'Error al cerrar sesión (administradores).' });
             }
 
-            console.log('Token eliminado en la tabla administradores:', resultAdministradores.affectedRows);
+            console.log(`Administradores afectados: ${resultAdministradores.affectedRows}`);
 
+            // Verifica si alguna fila fue afectada
+            if (resultPacientes.affectedRows === 0 && resultAdministradores.affectedRows === 0) {
+                console.log('No se encontró un token válido en la base de datos.');
+                return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
+            }
+
+            console.log('Sesión cerrada exitosamente en la base de datos.');
             return res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
         });
     });
