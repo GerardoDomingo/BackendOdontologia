@@ -41,7 +41,7 @@ async function getConfigValue(settingName) {
 // Endpoint de login
 router.post('/login', async (req, res) => {
     try {
-        const email = xss(req.body.email);  // Sanitizar input
+        const email = xss(req.body.email); // Sanitizar input
         const password = xss(req.body.password);
         const captchaValue = req.body.captchaValue;
         const ipAddress = req.ip;
@@ -141,21 +141,23 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         const isMatch = await bcrypt.compare(password, usuario.password);
         if (!isMatch) {
             let newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
+            let now = new Date();
+            now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
+            const fechaHora = now.toISOString();
+
             let newFechaBloqueo = null;
 
             if (newFailedAttempts >= MAX_ATTEMPTS) {
-                let now = new Date();
-                now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
-                newFechaBloqueo = new Date(now.getTime() + LOCK_TIME_MINUTES * 60 * 1000).toISOString();
+                newFechaBloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000).toISOString();
             }
 
             const attemptSql = lastAttempt
-                ? `UPDATE login_attempts SET intentos_fallidos = ?, fecha_bloqueo = ? WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?`
-                : `INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo) VALUES (?, ?, 0, ?, ?)`;
+                ? `UPDATE login_attempts SET intentos_fallidos = ?, fecha_bloqueo = ?, fecha_hora = ? WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?`
+                : `INSERT INTO login_attempts (${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'}, ip_address, exitoso, intentos_fallidos, fecha_bloqueo, fecha_hora) VALUES (?, ?, 0, ?, ?, ?)`;
 
             db.query(
                 attemptSql,
-                lastAttempt ? [newFailedAttempts, newFechaBloqueo, usuario.id, ipAddress] : [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo],
+                lastAttempt ? [newFailedAttempts, newFechaBloqueo, fechaHora, usuario.id, ipAddress] : [usuario.id, ipAddress, newFailedAttempts, newFechaBloqueo, fechaHora],
                 (err) => {
                     if (err) {
                         return res.status(500).json({ message: 'Error al registrar intento fallido.' });
@@ -199,7 +201,6 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         });
     });
 }
-
 // Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
     console.log('Solicitando cierre de sesión...'); // Verificar solicitud de cierre
