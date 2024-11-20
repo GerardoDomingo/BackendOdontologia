@@ -135,12 +135,14 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res)
 
         const lastAttempt = attemptsResult[0];
 
-        // Verificar si el usuario está bloqueado
         if (lastAttempt && lastAttempt.fecha_bloqueo && new Date(lastAttempt.fecha_bloqueo) > new Date()) {
+            const lockUntil = new Date(lastAttempt.fecha_bloqueo).toLocaleString('es-ES', { timeZone: 'UTC' });
             return res.status(429).json({
-                message: `Tu cuenta está bloqueada hasta ${lastAttempt.fecha_bloqueo}. Inténtalo nuevamente después.`,
+                message: `Tu cuenta está bloqueada hasta ${lockUntil}. Inténtalo nuevamente después.`,
+                lockStatus: true,
+                lockUntil
             });
-        }
+        }        
 
         // Si se alcanzó el límite de intentos fallidos
         if (lastAttempt && lastAttempt.intentos_fallidos >= MAX_ATTEMPTS) {
