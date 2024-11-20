@@ -193,9 +193,9 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'Lax',
-                maxAge: 2 * 60 * 60 * 1000,
+                maxAge: 2 * 60 * 60 * 1000, // 2 horas en milisegundos (7200000 ms)
             });
-
+            
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
             `;
@@ -213,64 +213,38 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
     });
 }
 
-// **Nuevo Endpoint: Verificar Autenticación**
-router.get('/checkAuth', (req, res) => {
-    const sessionToken = req.cookies.cookie;
-
-    if (!sessionToken) {
-        return res.status(401).json({ message: 'No autorizado. Inicia sesión nuevamente.' });
-    }
-
-    const query = `
-      SELECT id, nombre, email, 'administrador' AS tipo FROM administradores WHERE cookie = ? 
-      UNION 
-      SELECT id, nombre, email, 'paciente' AS tipo FROM pacientes WHERE cookie = ?
-    `;
-
-    db.query(query, [sessionToken, sessionToken], (err, results) => {
-        if (err) {
-            console.error('Error al verificar sesión:', err);
-            return res.status(500).json({ message: 'Error interno al verificar la sesión.' });
-        }
-
-        if (results.length === 0) {
-            return res.status(401).json({ message: 'Sesión no válida. Inicia sesión nuevamente.' });
-        }
-
-        const user = results[0];
-        return res.status(200).json({
-            message: 'Sesión válida.',
-            user: { id: user.id, nombre: user.nombre, email: user.email, tipo: user.tipo }, // Información controlada
-        });
-    });
-});
-
-// **Endpoint de logout**
+// Archivo de rutas de autenticación
 router.post('/logout', (req, res) => {
+    console.log('Solicitando cierre de sesión...'); // Verificar solicitud de cierre
+    console.log('Token de sesión recibido:', req.cookies.cookie); // Revisar cookie recibida
+
     const sessionToken = req.cookies.cookie;
 
     if (!sessionToken) {
-        return res.status(400).json({ message: 'No hay sesión activa para cerrar.' });
+        console.log('Sesión no activa o ya cerrada'); // Mensaje de depuración adicional
+        return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
+    // Borrar la cookie en la respuesta
     res.clearCookie('cookie', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Lax',
+        sameSite: 'Lax', // Aseguramos que coincida con la configuración de login
     });
 
+    // Limpiar el token de la base de datos
     const query = `
-      UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
-      UPDATE administradores SET cookie = NULL WHERE cookie = ?;
+        UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
+        UPDATE administradores SET cookie = NULL WHERE cookie = ?;
     `;
     db.query(query, [sessionToken, sessionToken], (err) => {
         if (err) {
-            console.error('Error al cerrar sesión:', err);
-            return res.status(500).json({ message: 'Error al cerrar sesión. Inténtalo nuevamente.' });
+            console.error('Error al limpiar token en la base de datos:', err);
+            return res.status(500).json({ message: 'Error al cerrar sesión.' });
         }
-        return res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
+        console.log('Sesión cerrada exitosamente en la base de datos.');
+        return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
     });
 });
-
 
 module.exports = router;
