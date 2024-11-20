@@ -129,8 +129,11 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         }
 
         const lastAttempt = attemptsResult[0];
+        const now = new Date();
+        now.setHours(now.getHours() - 6); // Restar 6 horas
+        const fechaHora = now.toISOString();
 
-        // Verificar si la cuenta está bloqueada
+        // Verificar si el usuario ya está bloqueado
         if (lastAttempt && lastAttempt.fecha_bloqueo) {
             const bloqueoActivo = new Date(lastAttempt.fecha_bloqueo) > new Date();
             if (bloqueoActivo) {
@@ -144,23 +147,19 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
 
         // Verificar la contraseña
         const isMatch = await bcrypt.compare(password, usuario.password);
-        let now = new Date();
-        now.setHours(now.getHours() - 6); // Ajustar fecha actual
-        const fechaHora = now.toISOString();
 
         if (!isMatch) {
-            // Incrementar intentos fallidos
-            const newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
+            // Incrementar los intentos fallidos
+            let newFailedAttempts = lastAttempt ? lastAttempt.intentos_fallidos + 1 : 1;
             let newFechaBloqueo = null;
 
             if (newFailedAttempts >= MAX_ATTEMPTS) {
-                // Calcular fecha de bloqueo
-                let bloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
+                const bloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000);
                 bloqueo.setHours(bloqueo.getHours() - 6); // Ajustar fecha de bloqueo
                 newFechaBloqueo = bloqueo.toISOString();
             }
 
-            // Actualizar intentos fallidos en la base de datos
+            // Actualizar o insertar registro de intentos fallidos
             const attemptSql = lastAttempt
                 ? `UPDATE login_attempts 
                    SET intentos_fallidos = ?, fecha_bloqueo = ?, fecha_hora = ? 
@@ -178,7 +177,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
                 }
             });
 
-            // Responder con el estado actualizado
+            // Devolver respuesta
             return res.status(401).json({
                 message: 'Contraseña incorrecta.',
                 failedAttempts: newFailedAttempts,
@@ -195,7 +194,6 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
-            // Configurar cookie de sesión
             res.cookie('cookie', sessionToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -203,7 +201,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
                 maxAge: 24 * 60 * 60 * 1000,
             });
 
-            // Limpiar registros de intentos fallidos
+            // Limpiar intentos fallidos
             const clearAttemptsSql = `
                 DELETE FROM login_attempts 
                 WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
