@@ -193,7 +193,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'Lax',
-                maxAge: 2 * 60 * 60 * 1000, // 2 horas en milisegundos (7200000 ms)
+                maxAge: 2 * 60 * 60 * 1000,
             });
             
             const clearAttemptsSql = `
