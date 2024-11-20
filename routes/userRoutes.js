@@ -195,7 +195,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
                 sameSite: 'Lax',
                 maxAge: 2 * 60 * 60 * 1000,
             });
-            
+
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
             `;
@@ -222,23 +222,25 @@ router.get('/checkAuth', (req, res) => {
     }
 
     const query = `
-        SELECT id, nombre, email, 'administrador' AS tipo FROM administradores WHERE cookie = ? 
-        UNION 
-        SELECT id, nombre, email, 'paciente' AS tipo FROM pacientes WHERE cookie = ?
+      SELECT id, nombre, email, 'administrador' AS tipo FROM administradores WHERE cookie = ? 
+      UNION 
+      SELECT id, nombre, email, 'paciente' AS tipo FROM pacientes WHERE cookie = ?
     `;
 
     db.query(query, [sessionToken, sessionToken], (err, results) => {
         if (err) {
-            return res.status(500).json({ message: 'Error al verificar sesión.' });
+            console.error('Error al verificar sesión:', err);
+            return res.status(500).json({ message: 'Error interno al verificar la sesión.' });
         }
 
         if (results.length === 0) {
-            return res.status(401).json({ message: 'No autorizado. Inicia sesión nuevamente.' });
+            return res.status(401).json({ message: 'Sesión no válida. Inicia sesión nuevamente.' });
         }
 
+        const user = results[0];
         return res.status(200).json({
             message: 'Sesión válida.',
-            user: results[0], // Información del usuario autenticado
+            user: { id: user.id, nombre: user.nombre, email: user.email, tipo: user.tipo }, // Información controlada
         });
     });
 });
@@ -248,7 +250,7 @@ router.post('/logout', (req, res) => {
     const sessionToken = req.cookies.cookie;
 
     if (!sessionToken) {
-        return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
+        return res.status(400).json({ message: 'No hay sesión activa para cerrar.' });
     }
 
     res.clearCookie('cookie', {
@@ -258,15 +260,17 @@ router.post('/logout', (req, res) => {
     });
 
     const query = `
-        UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
-        UPDATE administradores SET cookie = NULL WHERE cookie = ?;
+      UPDATE pacientes SET cookie = NULL WHERE cookie = ?;
+      UPDATE administradores SET cookie = NULL WHERE cookie = ?;
     `;
     db.query(query, [sessionToken, sessionToken], (err) => {
         if (err) {
-            return res.status(500).json({ message: 'Error al cerrar sesión.' });
+            console.error('Error al cerrar sesión:', err);
+            return res.status(500).json({ message: 'Error al cerrar sesión. Inténtalo nuevamente.' });
         }
-        return res.status(200).json({ message: 'Sesión cerrada exitosamente' });
+        return res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
     });
 });
+
 
 module.exports = router;
