@@ -144,7 +144,9 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             let newFechaBloqueo = null;
 
             if (newFailedAttempts >= MAX_ATTEMPTS) {
-                newFechaBloqueo = new Date(Date.now() + LOCK_TIME_MINUTES * 60 * 1000).toISOString();
+                let now = new Date();
+                now.setHours(now.getHours() - 6); // Restar 6 horas a la hora actual
+                newFechaBloqueo = new Date(now.getTime() + LOCK_TIME_MINUTES * 60 * 1000).toISOString();
             }
 
             const attemptSql = lastAttempt
@@ -168,7 +170,7 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             });
         }
 
-        // Login exitoso, limpiar intentos fallidos
+        // Login exitoso
         const sessionToken = generateToken();
         const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
