@@ -9,7 +9,6 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 1024 * 1024 * 10 }, // Límite de 10MB para archivos
     fileFilter: (req, file, cb) => {
-        // Permitir archivos JPEG, JPG y PNG
         if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg' || file.mimetype === 'image/png') {
             cb(null, true);
         } else {
@@ -29,17 +28,17 @@ router.post('/insert', (req, res, next) => {
         next();
     });
 }, (req, res) => {
-    const { nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
+    const { nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan } = req.body;
     const logo = req.file ? req.file.buffer : null;
 
     if (!nombre_empresa || !correo_electronico) {
         return res.status(400).send('Nombre de empresa y correo electrónico son obligatorios');
     }
 
-    const query = `INSERT INTO perfil_empresa (nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, slogan, titulo_pagina) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO perfil_empresa (nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, slogan) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(query, [nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, slogan, titulo_pagina], (err, result) => {
+    db.query(query, [nombre_empresa, direccion, telefono, correo_electronico, descripcion, logo, slogan], (err, result) => {
         if (err) {
             console.log(err);
             return res.status(500).send('Error en el servidor');
@@ -70,7 +69,6 @@ router.get('/get', (req, res) => {
         res.status(200).json(perfilEmpresa); // Devuelve el resultado con los nuevos campos incluidos
     });
 });
-
 
 // Endpoint para actualizar el logo de la empresa
 router.put('/updateLogo', (req, res, next) => {
@@ -110,10 +108,9 @@ router.put('/updateLogo', (req, res, next) => {
     });
 });
 
-// Endpoint para actualizar
+// Endpoint para actualizar datos de la empresa
 router.put('/updateDatos', (req, res) => {
-    console.log(req.body);  // <-- Verifica los datos que estás recibiendo en el backend
-    const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina } = req.body;
+    const { id_empresa, nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan } = req.body;
 
     if (!id_empresa) {
         return res.status(400).send('El id_empresa es obligatorio para actualizar los datos');
@@ -123,9 +120,9 @@ router.put('/updateDatos', (req, res) => {
         return res.status(400).send('Nombre de empresa y correo electrónico son obligatorios');
     }
 
-    const query = `UPDATE perfil_empresa SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_electronico = ?, descripcion = ?, slogan = ?, titulo_pagina = ? WHERE id_empresa = ?`;
+    const query = `UPDATE perfil_empresa SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_electronico = ?, descripcion = ?, slogan = ? WHERE id_empresa = ?`;
 
-    const queryParams = [nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, titulo_pagina, id_empresa];
+    const queryParams = [nombre_empresa, direccion, telefono, correo_electronico, descripcion, slogan, id_empresa];
 
     db.query(query, queryParams, (err, result) => {
         if (err) {
@@ -141,7 +138,6 @@ router.put('/updateDatos', (req, res) => {
     });
 });
 
-
 // Endpoint para eliminar el perfil de empresa
 router.delete('/delete/:id', (req, res) => {
     const { id } = req.params;
@@ -156,9 +152,9 @@ router.delete('/delete/:id', (req, res) => {
     });
 });
 
-// Endpoint para obtener el logo y el título de la página
+// Endpoint para obtener el nombre de la empresa y el logo
 router.get('/getTitleAndLogo', (req, res) => {
-    const query = `SELECT titulo_pagina, logo FROM perfil_empresa LIMIT 1`;
+    const query = `SELECT nombre_empresa, logo FROM perfil_empresa LIMIT 1`;
 
     db.query(query, (err, results) => {
         if (err) {
@@ -177,9 +173,9 @@ router.get('/getTitleAndLogo', (req, res) => {
             perfilEmpresa.logo = perfilEmpresa.logo.toString('base64');
         }
 
-        // Enviar el título de la página y el logo
+        // Enviar el nombre de la empresa y el logo
         res.status(200).json({
-            titulo_pagina: perfilEmpresa.titulo_pagina,
+            nombre_empresa: perfilEmpresa.nombre_empresa,
             logo: perfilEmpresa.logo,
         });
     });
