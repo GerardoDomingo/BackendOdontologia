@@ -518,10 +518,10 @@ router.post('/verify-verification-code', async (req, res) => {
     const { email, code } = req.body;
 
     try {
-        // Consultar la tabla de pacientes
         const findPatientSql = `SELECT 'pacientes' AS userType, token_verificacion, token_expiracion FROM pacientes WHERE email = ?`;
         const findAdminSql = `SELECT 'administradores' AS userType, token_verificacion, token_expiracion FROM administradores WHERE email = ?`;
 
+        // Buscar en pacientes
         db.query(findPatientSql, [email], (err, patientResult) => {
             if (err) {
                 console.error('Error al buscar en la tabla de pacientes:', err);
@@ -530,9 +530,9 @@ router.post('/verify-verification-code', async (req, res) => {
 
             if (patientResult.length > 0) {
                 // Verificar el código para pacientes
-                handleCodeVerification('pacientes', patientResult[0], code, email, res);
+                handleCodeVerification('pacientes', patientResult[0], code, email, res, 'pacientes');
             } else {
-                // Buscar en la tabla de administradores
+                // Buscar en administradores
                 db.query(findAdminSql, [email], (err, adminResult) => {
                     if (err) {
                         console.error('Error al buscar en la tabla de administradores:', err);
@@ -541,9 +541,9 @@ router.post('/verify-verification-code', async (req, res) => {
 
                     if (adminResult.length > 0) {
                         // Verificar el código para administradores
-                        handleCodeVerification('administradores', adminResult[0], code, email, res);
+                        handleCodeVerification('administradores', adminResult[0], code, email, res, 'administradores');
                     } else {
-                        // Si no se encuentra en ninguna tabla
+                        // Usuario no encontrado
                         return res.status(404).json({ message: 'Usuario no encontrado en pacientes ni administradores.' });
                     }
                 });
@@ -556,7 +556,7 @@ router.post('/verify-verification-code', async (req, res) => {
 });
 
 // Función para verificar el código
-function handleCodeVerification(userType, user, code, email, res) {
+function handleCodeVerification(userType, user, code, email, res, userTypeResponse) {
     if (user.token_verificacion !== code) {
         return res.status(400).json({ message: 'Código incorrecto.' });
     }
@@ -578,8 +578,13 @@ function handleCodeVerification(userType, user, code, email, res) {
             return res.status(500).json({ message: 'Error al limpiar el token de verificación.' });
         }
 
-        res.status(200).json({ message: 'Código verificado correctamente.' });
+        // Responder con el tipo de usuario
+        res.status(200).json({
+            message: 'Código verificado correctamente.',
+            userType: userTypeResponse, // Devolver el tipo de usuario
+        });
     });
 }
+
 
 module.exports = router;
