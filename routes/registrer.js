@@ -45,6 +45,16 @@ cron.schedule('*/10 * * * *', () => {
     eliminarRegistrosIncompletos();
 });
 
+// Generar un token alfanumérico de 6 caracteres (mayúsculas y números)
+function generateToken() {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let token = '';
+    for (let i = 0; i < 6; i++) {
+        token += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return token;
+}
+
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
     try {
@@ -137,15 +147,6 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Genera un token con formato de 12 caracteres, separados en grupos de 3 por guiones
-const generateToken = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let token = '';
-    for (let i = 0; i < 12; i++) {
-        token += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return `${token.slice(0, 3)}-${token.slice(3, 6)}-${token.slice(6, 9)}-${token.slice(9)}`;
-};
 
 // Endpoint para solicitar la recuperación de contraseña
 router.post('/recuperacion', async (req, res) => {
@@ -463,7 +464,7 @@ router.post('/send-verification-code', async (req, res) => {
 // Función para manejar el envío del código de verificación
 function handleVerificationCode(userType, email, res) {
     // Generar código de verificación
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // Código de 6 dígitos
+    const verificationCode = generateToken(); // Código de 6 dígitos
     const codeExpiration = new Date(Date.now() + 10 * 60000); // Expira en 10 minutos
 
     // Actualizar la tabla correspondiente con el código y su expiración
@@ -478,22 +479,30 @@ function handleVerificationCode(userType, email, res) {
             console.error(`Error al guardar el código en ${userType}:`, err);
             return res.status(500).json({ message: 'Error al guardar el código de verificación.' });
         }
-
-        // Configurar el correo
         const mailOptions = {
             from: 'odontologiacarol2024@gmail.com',
             to: email,
             subject: 'Código de Verificación - Odontología Carol',
             html: `
-                <div style="font-family: Arial, sans-serif; text-align: center;">
-                    <h1>Odontología Carol</h1>
-                    <p>Tu código de verificación es:</p>
-                    <p style="font-size: 24px; font-weight: bold;">${verificationCode}</p>
-                    <p>Este código expira en 10 minutos.</p>
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <div style="text-align: center; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #f9f9f9;">
+                    <h1 style="color: #1976d2; font-size: 24px; margin-bottom: 10px;">Odontología Carol</h1>
+                    <p style="font-size: 16px; margin: 0;">¡Hola!</p>
+                    <p style="font-size: 16px; margin: 10px 0 20px;">Gracias por confiar en <b>Odontología Carol</b>. Para continuar, ingresa el siguiente código de verificación en la página correspondiente:</p>
+                    <div style="display: inline-block; background-color: #e3f2fd; border-radius: 8px; padding: 15px 25px; margin: 20px 0;">
+                        <span style="font-size: 28px; font-weight: bold; color: #1976d2;">${verificationCode}</span>
+                    </div>
+                    <p style="font-size: 14px; color: #616161; margin: 20px 0;">Este código es válido por 10 minutos. Por favor, no lo compartas con nadie.</p>
+                    <p style="font-size: 14px; color: #d32f2f; font-weight: bold;">Copia el código exactamente como está, respetando mayúsculas y minúsculas.</p>
+                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                    <footer style="font-size: 12px; color: #9e9e9e;">
+                        <p>Odontología Carol - Cuidando de tu salud bucal</p>
+                        <p>Este es un correo generado automáticamente, por favor no respondas a este mensaje.</p>
+                    </footer>
                 </div>
+            </div>
             `,
         };
-
         try {
             // Enviar el correo
             await transporter.sendMail(mailOptions);
