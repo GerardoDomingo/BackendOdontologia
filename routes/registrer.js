@@ -202,7 +202,7 @@ router.post('/recuperacion', async (req, res) => {
                                 <div style="padding: 10px; background-color: #f0f0f0; border-radius: 5px; display: inline-block; margin: 20px 0;">
                                     <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${token}</span>
                                 </div>
-                                <p style="color: #d32f2f; font-weight: bold; font-size: 18px;">El token debe ser copiado tal y como está, respetando mayúsculas, minúsculas y guiones.</p>
+                                <p style="color: #d32f2f; font-weight: bold; font-size: 18px;">El token debe ser copiado tal y como está, respetando los numeros y mayusculas.</p>
                                 <p><b>Nota:</b> Este código caduca en 15 minutos.</p>
                                 <hr style="margin: 20px 0;">
                                 <footer>
@@ -291,13 +291,25 @@ router.post('/resetPassword', async (req, res) => {
                 return res.status(400).json({ message: 'Token ha expirado.' });
             }
 
-            console.log("Token válido y no ha expirado, actualizando la contraseña...");
+            console.log("Token válido y no ha expirado, verificando contraseña...");
+
+            // Verificar si la nueva contraseña es la misma que la actual
+            const user = result[0];
+            const passwordMatches = await bcrypt.compare(newPassword, user.password);
+            if (passwordMatches) {
+                console.error("La nueva contraseña no puede ser igual a la actual.");
+                return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a la actual.' });
+            }
 
             // Encriptar la nueva contraseña
             const hashedPassword = await bcrypt.hash(xss(newPassword), 10);
 
             // Actualizar la contraseña y limpiar el token
-            const updatePasswordSql = 'UPDATE pacientes SET password = ?, token_verificacion = NULL, token_expiracion = NULL WHERE token_verificacion = ?';
+            const updatePasswordSql = `
+                UPDATE pacientes
+                SET password = ?, token_verificacion = NULL, token_expiracion = NULL
+                WHERE token_verificacion = ?
+            `;
             db.query(updatePasswordSql, [hashedPassword, token], (err, result) => {
                 if (err) {
                     console.error("Error al actualizar la contraseña:", err);
@@ -359,7 +371,7 @@ router.post('/send-verification-email', (req, res) => {
                             <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${verificationToken}</span>
                         </div>
                         <p>Ingresa este código en la página de verificación de tu cuenta.</p>
-                        <p style="color: #d32f2f; font-weight: bold; font-size: 18px;">El token debe ser copiado tal y como está, respetando mayúsculas, minúsculas y guiones.</p>
+                        <p style="color: #d32f2f; font-weight: bold; font-size: 18px;">El token debe ser copiado tal y como está, respetando los numeros y mayusculas.</p>
                         <p><b>Nota:</b> Este código caduca en 15 minutos.</p>
                         <hr style="margin: 20px 0;">
                         <footer>
