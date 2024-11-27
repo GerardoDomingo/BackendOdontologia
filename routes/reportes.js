@@ -92,6 +92,37 @@ router.post('/update-config', async (req, res) => {
     });
   });
   
+// Endpoint para obtener el reporte de pacientes
+router.get('/pacientes', async (req, res) => {
+  try {
+      const query = `
+          SELECT 
+              id, 
+              nombre, 
+              aPaterno, 
+              aMaterno, 
+              fechaNacimiento, 
+              genero, 
+              lugar, 
+              telefono, 
+              email, 
+              alergias, 
+              estado 
+          FROM pacientes
+      `;
 
+      db.query(query, (err, results) => {
+          if (err) {
+              logger.error(`Error al obtener pacientes: ${err.message}`);
+              return res.status(500).json({ message: 'Error al obtener pacientes.' });
+          }
+
+          return res.status(200).json(results);
+      });
+  } catch (error) {
+      logger.error(`Error en el servidor: ${error.message}`);
+      return res.status(500).json({ message: 'Error en el servidor.' });
+  }
+});
 
 module.exports = router;
