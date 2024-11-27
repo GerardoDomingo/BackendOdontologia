@@ -181,5 +181,19 @@ router.get('/getTitleAndLogo', (req, res) => {
     });
 });
 
+// Endpoint para obtener los datos de la empresa
+router.get('/empresa', (req, res) => {
+    const query = 'SELECT nombre_empresa, slogan, direccion, telefono, correo_electronico FROM perfil_empresa LIMIT 1'; // Obtener el primer registro
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error al obtener los datos de la empresa:', err);
+            return res.status(500).json({ message: 'Error al obtener los datos de la empresa.' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron datos de la empresa.' });
+        }
+        res.status(200).json(results[0]); // Retornar el primer resultado
+    });
+});
 // Exportar el router
 module.exports = router;
