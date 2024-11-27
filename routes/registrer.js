@@ -590,13 +590,13 @@ function handleCodeVerification(userType, user, code, email, res, userTypeRespon
             return res.status(500).json({ message: 'Error al limpiar el token de verificación.' });
         }
 
-        // Responder con el tipo de usuario
+        // Agregar depuración y responder con tipo de usuario
+        console.log(`Código verificado correctamente para el usuario: ${email}, tipo: ${userTypeResponse}`);
         res.status(200).json({
             message: 'Código verificado correctamente.',
-            userType: userTypeResponse, // Devolver el tipo de usuario
+            userType: userTypeResponse, // Asegurar envío del tipo de usuario
         });
     });
 }
-
 
 module.exports = router;
