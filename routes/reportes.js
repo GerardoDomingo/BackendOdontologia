@@ -92,7 +92,7 @@ router.post('/update-config', async (req, res) => {
     });
   });
   
-// Endpoint para obtener el reporte de pacientes
+// Endpoint para obtener el reporte de pacientess
 router.get('/pacientes', async (req, res) => {
   try {
       const query = `
