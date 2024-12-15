@@ -20,7 +20,7 @@ app.use(
 
 // Configuración de CORS para permitir solicitudes desde ambos dominios de frontend
 app.use(cors({
-  origin: ['https://odontologiacarol.onrender.com', 'https://odontologiacarol.isoftuthh.com', 'https://backendodontologia.onrender.com'], // Dominios permitidos
+  origin: ['https://odontologiacarol.onrender.com', 'https://odontologiacarol.isoftuthh.com', 'https://backendodontologia.onrender.com', 'http://localhost:3000'], // Dominios permitidos
   credentials: true  // Permitir el envío de cookies y credenciales
 }));
 
