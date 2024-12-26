@@ -92,36 +92,110 @@ router.post('/update-config', async (req, res) => {
     });
   });
   
-// Endpoint para obtener el reporte de pacientess
+// Endpoint para obtener el reporte de pacientes
 router.get('/pacientes', async (req, res) => {
   try {
-      const query = `
-          SELECT 
-              id, 
-              nombre, 
-              aPaterno, 
-              aMaterno, 
-              fechaNacimiento, 
-              genero, 
-              lugar, 
-              telefono, 
-              email, 
-              alergias, 
-              estado 
-          FROM pacientes
+    const query = `
+      SELECT 
+        p.id, 
+        p.nombre, 
+        p.aPaterno, 
+        p.aMaterno, 
+        p.fechaNacimiento, 
+        p.genero, 
+        p.lugar, 
+        p.telefono, 
+        p.email, 
+        p.alergias, 
+        p.estado,
+        p.fechaCreacion,
+        CONCAT(
+          DATE_FORMAT(p.fechaCreacion, '%d/%m/%Y'),
+          ' ',
+          TIME_FORMAT(p.fechaCreacion, '%H:%i')
+        ) as fechaFormateada
+      FROM pacientes p
+      ORDER BY p.fechaCreacion DESC
+    `;
+
+    db.query(query, (err, results) => {
+      if (err) {
+        logger.error(`Error al obtener pacientes: ${err.message}`);
+        return res.status(500).json({ message: 'Error al obtener pacientes.' });
+      }
+
+      return res.status(200).json(results);
+    });
+  } catch (error) {
+    logger.error(`Error en el servidor: ${error.message}`);
+    return res.status(500).json({ message: 'Error en el servidor.' });
+  }
+});
+
+// Endpoint para actualizar el estado de un paciente
+router.put('/pacientes/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    if (!estado) {
+      return res.status(400).json({ message: 'El estado es requerido.' });
+    }
+
+    const query = `
+      UPDATE pacientes 
+      SET 
+        estado = ?,
+        fechaModificacion = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+
+    db.query(query, [estado, id], (err, result) => {
+      if (err) {
+        logger.error(`Error al actualizar estado del paciente: ${err.message}`);
+        return res.status(500).json({ message: 'Error al actualizar estado del paciente.' });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Paciente no encontrado.' });
+      }
+
+      // Registrar el cambio en la tabla de auditoría
+      const auditQuery = `
+        INSERT INTO auditoria (
+          accion, 
+          tablaAfectada, 
+          idRegistro, 
+          valorAnterior, 
+          valorNuevo, 
+          usuario
+        ) VALUES (?, ?, ?, ?, ?, ?)
       `;
 
-      db.query(query, (err, results) => {
-          if (err) {
-              logger.error(`Error al obtener pacientes: ${err.message}`);
-              return res.status(500).json({ message: 'Error al obtener pacientes.' });
-          }
+      const auditValues = [
+        'ACTUALIZAR_ESTADO',
+        'pacientes',
+        id,
+        null, // Valor anterior (podrías obtenerlo si es necesario)
+        estado,
+        req.user?.id || null // Asumiendo que tienes el usuario en el request
+      ];
 
-          return res.status(200).json(results);
+      db.query(auditQuery, auditValues, (auditErr) => {
+        if (auditErr) {
+          logger.error(`Error al registrar auditoría: ${auditErr.message}`);
+        }
       });
+
+      return res.status(200).json({ 
+        message: 'Estado del paciente actualizado exitosamente.',
+        pacienteId: id,
+        nuevoEstado: estado
+      });
+    });
   } catch (error) {
-      logger.error(`Error en el servidor: ${error.message}`);
-      return res.status(500).json({ message: 'Error en el servidor.' });
+    logger.error(`Error en el servidor: ${error.message}`);
+    return res.status(500).json({ message: 'Error en el servidor.' });
   }
 });
 
