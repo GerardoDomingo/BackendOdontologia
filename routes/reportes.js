@@ -147,30 +147,70 @@ router.put("/pacientes/:id/status", async (req, res) => {
     const { id } = req.params;
     const { estado } = req.body;
 
-    if (!estado) {
-      return res.status(400).json({ message: "El estado es requerido." });
+    // Validación de datos
+    if (!id || !estado) {
+      return res.status(400).json({ 
+        success: false,
+        message: "ID y estado son requeridos." 
+      });
     }
 
+    // Validación de estados permitidos
+    const estadosPermitidos = ['Activo', 'Inactivo', 'Pendiente'];
+    if (!estadosPermitidos.includes(estado)) {
+      return res.status(400).json({ 
+        success: false,
+        message: `Estado no válido. Debe ser uno de: ${estadosPermitidos.join(', ')}` 
+      });
+    }
+
+    // Query de actualización
     const query = `
       UPDATE pacientes 
-      SET estado = ?
+      SET estado = ?,
+          ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
+    // Ejecutar la actualización
     db.query(query, [estado, id], (err, result) => {
       if (err) {
-        logger.error(`Error al actualizar estado: ${err.message}`);
-        return res.status(500).json({ message: "Error al actualizar el estado." });
+        console.error('Error en la query:', err);
+        return res.status(500).json({ 
+          success: false,
+          message: "Error al actualizar el estado en la base de datos.",
+          error: err.message 
+        });
       }
 
-      return res.status(200).json({ 
-        message: "Estado actualizado correctamente"
+      // Verificar si se actualizó algún registro
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ 
+          success: false,
+          message: "No se encontró el paciente con el ID proporcionado." 
+        });
+      }
+
+      // Respuesta exitosa
+      return res.status(200).json({
+        success: true,
+        message: "Estado actualizado correctamente",
+        data: {
+          id,
+          estado,
+          affectedRows: result.affectedRows
+        }
       });
     });
 
   } catch (error) {
-    logger.error(`Error en el servidor: ${error.message}`);
-    return res.status(500).json({ message: "Error en el servidor." });
+    console.error('Error en el servidor:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: "Error interno del servidor.",
+      error: error.message 
+    });
   }
 });
+
 module.exports = router;
