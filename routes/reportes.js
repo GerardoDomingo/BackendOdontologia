@@ -124,91 +124,48 @@ router.get("/pacientes", async (req, res) => {
         email,
         alergias,
         estado,
-        ultima_actualizacion,
-        COALESCE(
-          CONCAT(
-            DATE_FORMAT(fecha_creacion, '%d/%m/%Y'),
-            ' ',
-            TIME_FORMAT(fecha_creacion, '%H:%i')
-          ),
-          'Sin fecha'
-        ) as fechaFormateada,
-        COALESCE(fecha_creacion, 'Sin fecha') as fechaCreacion
+        ultima_actualizacion
       FROM pacientes
-      WHERE estado IS NOT NULL
       ORDER BY fecha_creacion DESC
     `;
 
     db.query(query, (err, results) => {
       if (err) {
         logger.error(`Error al obtener pacientes: ${err.message}`);
-        return res.status(500).json({ 
-          success: false,
-          message: "Error al obtener pacientes."
-        });
+        return res.status(500).json({ message: "Error al obtener pacientes." });
       }
 
-      return res.status(200).json({
-        success: true,
-        total: results.length,
-        data: results
-      });
+      return res.status(200).json(results);
     });
   } catch (error) {
     logger.error(`Error en el servidor: ${error.message}`);
-    return res.status(500).json({ 
-      success: false,
-      message: "Error en el servidor."
-    });
+    return res.status(500).json({ message: "Error en el servidor." });
   }
 });
 
-// Endpoint para actualizar el estado
 router.put("/pacientes/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
 
-    // Validaciones
     if (!estado) {
       return res.status(400).json({ message: "El estado es requerido." });
     }
 
-    // Validar estados permitidos
-    const estadosPermitidos = ['Activo', 'Inactivo', 'Pendiente'];
-    if (!estadosPermitidos.includes(estado)) {
-      return res.status(400).json({ 
-        message: "Estado no válido. Los estados permitidos son: Activo, Inactivo, Pendiente" 
-      });
-    }
-
-    // Actualizar estado
-    const updateQuery = `
+    const query = `
       UPDATE pacientes 
-      SET 
-        estado = ?,
-        ultima_actualizacion = CURRENT_TIMESTAMP
+      SET estado = ?
       WHERE id = ?
     `;
 
-    db.query(updateQuery, [estado, id], (err, result) => {
+    db.query(query, [estado, id], (err, result) => {
       if (err) {
         logger.error(`Error al actualizar estado: ${err.message}`);
         return res.status(500).json({ message: "Error al actualizar el estado." });
       }
 
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: "Paciente no encontrado." });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Estado actualizado correctamente",
-        data: {
-          id,
-          estado,
-          fechaActualizacion: new Date()
-        }
+      return res.status(200).json({ 
+        message: "Estado actualizado correctamente"
       });
     });
 
