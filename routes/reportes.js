@@ -125,7 +125,6 @@ router.get("/pacientes", async (req, res) => {
         estado,
         ultima_actualizacion
       FROM pacientes
-      ORDER BY fecha_creacion DESC
     `;
 
     db.query(query, (err, results) => {
