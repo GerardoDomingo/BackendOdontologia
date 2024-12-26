@@ -146,7 +146,9 @@ router.put("/pacientes/:id/status", async (req, res) => {
     const { id } = req.params;
     const { estado } = req.body;
 
-    // Validación de datos
+    console.log('ID recibido:', id);
+    console.log('Estado recibido:', estado);
+
     if (!id || !estado) {
       return res.status(400).json({ 
         success: false,
@@ -154,7 +156,6 @@ router.put("/pacientes/:id/status", async (req, res) => {
       });
     }
 
-    // Validación de estados permitidos
     const estadosPermitidos = ['Activo', 'Inactivo', 'Pendiente'];
     if (!estadosPermitidos.includes(estado)) {
       return res.status(400).json({ 
@@ -163,15 +164,12 @@ router.put("/pacientes/:id/status", async (req, res) => {
       });
     }
 
-    // Query de actualización
     const query = `
       UPDATE pacientes 
       SET estado = ?,
           ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
-
-    // Ejecutar la actualización
     db.query(query, [estado, id], (err, result) => {
       if (err) {
         console.error('Error en la query:', err);
@@ -182,7 +180,6 @@ router.put("/pacientes/:id/status", async (req, res) => {
         });
       }
 
-      // Verificar si se actualizó algún registro
       if (result.affectedRows === 0) {
         return res.status(404).json({ 
           success: false,
@@ -190,7 +187,6 @@ router.put("/pacientes/:id/status", async (req, res) => {
         });
       }
 
-      // Respuesta exitosa
       return res.status(200).json({
         success: true,
         message: "Estado actualizado correctamente",
@@ -201,7 +197,6 @@ router.put("/pacientes/:id/status", async (req, res) => {
         }
       });
     });
-
   } catch (error) {
     console.error('Error en el servidor:', error);
     return res.status(500).json({ 
@@ -211,5 +206,6 @@ router.put("/pacientes/:id/status", async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;
