@@ -116,7 +116,6 @@ router.get("/pacientes", async (req, res) => {
         aMaterno,
         fechaNacimiento,
         fecha_creacion,
-        tipoFuturo,
         nombreTutor,
         genero,
         lugar,
