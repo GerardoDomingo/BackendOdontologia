@@ -11,6 +11,11 @@ const cookieParser = require('cookie-parser');
 
 router.use(cookieParser()); // Configuración de cookie-parser
 
+const verificarCookie = (req, res, next) => {
+    console.log('Cookies recibidas:', req.cookies);
+    next();
+};
+
 // Función para generar un token aleatorio seguro
 function generateToken() {
     return crypto.randomBytes(64).toString('hex');
@@ -190,12 +195,14 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
 
             res.cookie('cookie', sessionToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'Lax',
-                maxAge: 2 * 60 * 60 * 1000, // 2 horas en milisegundos (7200000 ms)
+                httpOnly: true, // Evita acceso desde JavaScript del cliente
+                secure: true, // Forzar HTTPS
+                sameSite: 'None', // Permite cookies en peticiones cross-site
+                path: '/', // Disponible en todas las rutas
+                maxAge: 2 * 60 * 60 * 1000, // 2 horas
+                domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost' // Ajusta según tu dominio
             });
-            
+
             const clearAttemptsSql = `
                 DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
             `;
@@ -214,22 +221,20 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
 }
 
 router.post('/logout', (req, res) => {
-    console.log('Solicitando cierre de sesión...');
     const sessionToken = req.cookies?.cookie;
 
-    // Verifica si se recibió la cookie
     if (!sessionToken) {
-        console.log('No se recibió una cookie en la solicitud.');
         return res.status(400).json({ message: 'Sesión no activa o ya cerrada.' });
     }
 
-    console.log('Token de sesión recibido:', sessionToken);
-
-    // Borra la cookie en la respuesta
-    res.clearCookie('cookie', {
+    // Borra la cookie con las mismas opciones que al crearla
+    res.cookie('cookie', '', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Lax',
+        secure: true,
+        sameSite: 'None',
+        path: '/',
+        maxAge: 0,
+        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost'
     });
 
     // Limpia el token en la base de datos
