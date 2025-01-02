@@ -122,6 +122,7 @@ router.post('/login', async (req, res) => {
 
 // Función para autenticar usuarios
 async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res, MAX_ATTEMPTS, LOCK_TIME_MINUTES) {
+
     const checkAttemptsSql = `
         SELECT * FROM login_attempts
         WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
@@ -191,30 +192,28 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
         // Login exitoso, limpiar intentos fallidos
         const sessionToken = generateToken();
         const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
+        
         db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
             if (err) return res.status(500).json({ message: 'Error en el servidor.' });
-
-            res.cookie('cookie', sessionToken, {
-                httpOnly: true, // Evita acceso desde JavaScript del cliente
-                secure: true, // Forzar HTTPS
-                sameSite: 'None', // Permite cookies en peticiones cross-site
-                path: '/', // Disponible en todas las rutas
+    
+            // Configuración mejorada de cookies
+            res.cookie('sessionToken', sessionToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+                path: '/',
                 maxAge: 2 * 60 * 60 * 1000, // 2 horas
-                domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost' // Ajusta según tu dominio
+                domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost'
             });
-
-            const clearAttemptsSql = `
-                DELETE FROM login_attempts WHERE ${tipoUsuario === 'administrador' ? 'administrador_id' : 'paciente_id'} = ? AND ip_address = ?
-            `;
-            db.query(clearAttemptsSql, [usuario.id, ipAddress], (err) => {
-                if (err) {
-                    return res.status(500).json({ message: 'Error al limpiar intentos fallidos.' });
+    
+            return res.status(200).json({
+                message: 'Inicio de sesión exitoso',
+                user: { 
+                    nombre: usuario.nombre, 
+                    email: usuario.email, 
+                    tipo: tipoUsuario,
+                    token: sessionToken // Enviar el token al cliente
                 }
-
-                return res.status(200).json({
-                    message: 'Inicio de sesión exitoso',
-                    user: { nombre: usuario.nombre, email: usuario.email, tipo: tipoUsuario },
-                });
             });
         });
     });
