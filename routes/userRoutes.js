@@ -261,28 +261,25 @@ async function autenticarUsuario(
       } SET cookie = ? WHERE id = ?`;
 
       db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
-        if (err)
-          return res.status(500).json({ message: "Error en el servidor." });
-
-        res.cookie("sessionToken", sessionToken, {
-          httpOnly: false, // Para poder verla en el navegador
-          secure: false, // false para desarrollo local
-          path: "/",
-          maxAge: 24 * 60 * 60 * 1000, // 24 horas
+        if (err) return res.status(500).json({ message: 'Error en el servidor.' });
+    
+        // Configuración simple de la cookie
+        res.cookie('carolDental', sessionToken, {  // Cambiamos el nombre a 'carolDental'
+            httpOnly: false,  // Importante: false para poder verla
+            secure: false,    // false para desarrollo
+            path: '/'
         });
-
-        console.log("Cookie establecida:", sessionToken); // Para debug
-
+    
         return res.status(200).json({
-          message: "Inicio de sesión exitoso",
-          user: {
-            nombre: usuario.nombre,
-            email: usuario.email,
-            tipo: tipoUsuario,
-            token: sessionToken,
-          },
+            message: 'Inicio de sesión exitoso',
+            user: { 
+                nombre: usuario.nombre, 
+                email: usuario.email, 
+                tipo: tipoUsuario,
+                token: sessionToken
+            }
         });
-      });
+    });
     }
   );
 }
