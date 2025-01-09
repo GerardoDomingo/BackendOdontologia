@@ -40,23 +40,16 @@ app.use(
 // Configuración CORS esencial para cookies
 app.use(
   cors({
-    origin: function (origin, callback) {
-      const allowedOrigins = [
-        "https://odontologiacarol.onrender.com",
-        "https://odontologiacarol.isoftuthh.com",
-        "https://backendodontologia.onrender.com",
-        "http://localhost:3000",
-      ];
-
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("No permitido por CORS"));
-      }
-    },
+    origin: [
+      "https://odontologiacarol.onrender.com",
+      "https://odontologiacarol.isoftuthh.com",
+      "https://backendodontologia.onrender.com",
+      "http://localhost:3000",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["set-cookie"], // Añadimos esto para exponer las cookies
   })
 );
 
@@ -67,6 +60,10 @@ app.use(express.json());
 // Middleware para asegurar headers de cookies
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
   next();
 });
 

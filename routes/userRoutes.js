@@ -189,32 +189,30 @@ async function autenticarUsuario(usuario, ipAddress, password, tipoUsuario, res,
             });
         }
 
-        // Login exitoso, limpiar intentos fallidos
         const sessionToken = generateToken();
-        const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
-        
-        db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
-            if (err) return res.status(500).json({ message: 'Error en el servidor.' });
-    
-            // Configuración mejorada de cookies
-            res.cookie('sessionToken', sessionToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-                path: '/',
-                maxAge: 2 * 60 * 60 * 1000, // 2 horas
-                domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost'
-            });
-    
-            return res.status(200).json({
-                message: 'Inicio de sesión exitoso',
-                user: { 
-                    nombre: usuario.nombre, 
-                    email: usuario.email, 
-                    tipo: tipoUsuario,
-                    token: sessionToken // Enviar el token al cliente
-                }
-            });
+const updateTokenSql = `UPDATE ${tipoUsuario === 'administrador' ? 'administradores' : 'pacientes'} SET cookie = ? WHERE id = ?`;
+
+db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
+    if (err) return res.status(500).json({ message: 'Error en el servidor.' });
+
+    // Simplifica la configuración de la cookie
+    res.cookie('sessionToken', sessionToken, {
+        httpOnly: false,  // Cambia a false para poder verla en el navegador
+        secure: false,    // Cambia a false para desarrollo
+        sameSite: 'Lax',
+        path: '/',
+        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    });
+
+    return res.status(200).json({
+        message: 'Inicio de sesión exitoso',
+        user: { 
+            nombre: usuario.nombre, 
+            email: usuario.email, 
+            tipo: tipoUsuario,
+            token: sessionToken
+        }
+    });
         });
     });
 }
