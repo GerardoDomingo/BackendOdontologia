@@ -8,64 +8,43 @@ const app = express();
 // Middleware esencial para cookies
 app.use(cookieParser());
 
-// Configuración básica de seguridad con Helmet
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "https://www.google.com",
-          "https://www.gstatic.com",
-        ],
-        frameSrc: [
-          "'self'",
-          "https://www.google.com",
-          "https://www.recaptcha.net",
-        ],
-        imgSrc: ["'self'", "https://www.google.com", "https://www.gstatic.com"],
-        connectSrc: [
-          "'self'",
-          "https://odontologiacarol.onrender.com",
-          "https://odontologiacarol.isoftuthh.com",
-          "https://backendodontologia.onrender.com",
-          "http://localhost:3000",
-        ],
-      },
-    },
-  })
-);
-
 // Configuración CORS esencial para cookies
-app.use(
-  cors({
-    origin: [
-      "https://odontologiacarol.onrender.com",
-      "https://odontologiacarol.isoftuthh.com",
-      "https://backendodontologia.onrender.com",
-      "http://localhost:3000",
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["set-cookie"], // Añadimos esto para exponer las cookies
-  })
-);
+app.use(cors({
+  origin: [
+    "https://odontologiacarol.onrender.com",
+    "https://odontologiacarol.isoftuthh.com",
+    "https://backendodontologia.onrender.com",
+    "http://localhost:3000"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Set-Cookie"] 
+}));
+
+// Configuración básica de seguridad con Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://www.google.com", "https://www.gstatic.com"],
+      frameSrc: ["'self'", "https://www.google.com", "https://www.recaptcha.net"],
+      imgSrc: ["'self'", "https://www.google.com", "https://www.gstatic.com"],
+      connectSrc: [
+        "'self'",
+        "https://odontologiacarol.onrender.com",
+        "https://odontologiacarol.isoftuthh.com",
+        "https://backendodontologia.onrender.com",
+        "http://localhost:3000"
+      ]
+    }
+  }
+}));
 
 // Middlewares básicos
 app.use(bodyParser.json());
 app.use(express.json());
 
-// Middleware para asegurar headers de cookies
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
-  );
-  next();
-});
 
 // Tus rutas existentes
 const userRoutes = require("./routes/userRoutes");

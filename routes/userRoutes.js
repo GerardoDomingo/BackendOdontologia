@@ -259,27 +259,29 @@ async function autenticarUsuario(
       const updateTokenSql = `UPDATE ${
         tipoUsuario === "administrador" ? "administradores" : "pacientes"
       } SET cookie = ? WHERE id = ?`;
-
+      
       db.query(updateTokenSql, [sessionToken, usuario.id], (err) => {
         if (err) return res.status(500).json({ message: 'Error en el servidor.' });
-    
-        // Configuración simple de la cookie
-        res.cookie('carolDental', sessionToken, {  // Cambiamos el nombre a 'carolDental'
-            httpOnly: false,  // Importante: false para poder verla
-            secure: false,    // false para desarrollo
-            path: '/'
+      
+        // Configuración mejorada de la cookie
+        res.cookie('carolDental', sessionToken, {
+          httpOnly: true,  // Cambiado a true por seguridad
+          secure: process.env.NODE_ENV === 'production',  // true en producción
+          sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+          path: '/',
+          maxAge: 24 * 60 * 60 * 1000  // 24 horas
         });
-    
+      
         return res.status(200).json({
-            message: 'Inicio de sesión exitoso',
-            user: { 
-                nombre: usuario.nombre, 
-                email: usuario.email, 
-                tipo: tipoUsuario,
-                token: sessionToken
-            }
+          message: 'Inicio de sesión exitoso',
+          user: {
+            nombre: usuario.nombre,
+            email: usuario.email,
+            tipo: tipoUsuario,
+            token: sessionToken
+          }
         });
-    });
+      });
     }
   );
 }
