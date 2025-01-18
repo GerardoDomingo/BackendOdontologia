@@ -49,12 +49,12 @@ app.use(express.json());
 // Tus rutas existentes
 const userRoutes = require("./routes/userRoutes");
 const Registrer = require("./routes/registrer");
-const politicasRoutes = require("./routes/politicasRoutes.js");
-const deslindeRoutes = require("./routes/deslindelegal.js");
-const terminosRoutes = require("./routes/terminosYcondicion.js");
-const perfil_empresa = require("./routes/perfilEmpresa.js");
-const reportes = require("./routes/reportes.js");
-const redes = require("./routes/redessociales.js");
+const politicasRoutes = require("./routes/inf_politicasRoutes.js");
+const deslindeRoutes = require("./routes/inf_deslindelegal.js");
+const terminosRoutes = require("./routes/inf_terminosYcondicion.js");
+const perfil_empresa = require("./routes/inf_perfilEmpresa.js");
+const reportes = require("./routes/inf_reportes.js");
+const redes = require("./routes/inf_redessociales.js");
 const perfil_paciente = require("./routes/perfil_paciente.js");
 
 // Asignar rutas

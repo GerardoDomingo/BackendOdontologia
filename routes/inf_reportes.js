@@ -7,7 +7,7 @@ router.get("/login-attempts", async (req, res) => {
   try {
     const attemptsSql = `
         SELECT id, ip_address, paciente_id, fecha_hora, intentos_fallidos, fecha_bloqueo
-        FROM login_attempts
+        FROM inf_login_attempts
       `;
 
     db.query(attemptsSql, async (err, attempts) => {
@@ -52,7 +52,7 @@ router.get("/login-attempts", async (req, res) => {
 
 // Endpoint para obtener logs
 router.get("/logs", async (req, res) => {
-  const query = "SELECT * FROM logs";
+  const query = "SELECT * FROM inf_logs";
   db.query(query, (err, results) => {
     if (err) {
       return res.status(500).json({ error: "Error al obtener logs" });
@@ -60,6 +60,7 @@ router.get("/logs", async (req, res) => {
     res.status(200).json(results);
   });
 });
+
 // Endpoint para obtener información de un paciente por su ID
 router.get("/paciente/:id", (req, res) => {
   const pacienteId = req.params.id;
