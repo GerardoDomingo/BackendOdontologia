@@ -286,75 +286,137 @@ async function autenticarUsuario(
   );
 }
 
-router.post("/logout", (req, res) => {
-  const sessionToken = req.cookies?.cookie;
-
+router.get("/check-auth", (req, res) => {
+  const sessionToken = req.cookies?.carolDental;
+  
   if (!sessionToken) {
-    return res.status(400).json({ message: "Sesión no activa o ya cerrada." });
+      return res.status(401).json({ authenticated: false });
   }
 
-  // Borra la cookie con las mismas opciones que al crearla
-  res.cookie("cookie", "", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "None",
-    path: "/",
-    maxAge: 0,
-    domain:
-      process.env.NODE_ENV === "production" ? ".onrender.com" : "localhost",
+  // Consulta modificada para obtener datos relevantes del usuario
+  const queryPacientes = `
+      SELECT id, nombre, email, 'paciente' as tipo
+      FROM pacientes 
+      WHERE cookie = ?
+  `;
+  
+  const queryAdministradores = `
+      SELECT id, nombre, email, 'administrador' as tipo
+      FROM administradores 
+      WHERE cookie = ?
+  `;
+
+  // Primero busca en pacientes
+  db.query(queryPacientes, [sessionToken], (err, resultsPacientes) => {
+      if (err) {
+          console.error("Error al verificar autenticación en pacientes:", err);
+          return res.status(500).json({ 
+              authenticated: false, 
+              message: "Error al verificar autenticación" 
+          });
+      }
+
+      if (resultsPacientes.length > 0) {
+          // Es un paciente
+          const userData = resultsPacientes[0];
+          return res.json({ 
+              authenticated: true,
+              user: {
+                  id: userData.id,
+                  nombre: userData.nombre,
+                  email: userData.email,
+                  tipo: userData.tipo
+              }
+          });
+      }
+
+      // Si no es paciente, busca en administradores
+      db.query(queryAdministradores, [sessionToken], (err, resultsAdmin) => {
+          if (err) {
+              console.error("Error al verificar autenticación en administradores:", err);
+              return res.status(500).json({ 
+                  authenticated: false, 
+                  message: "Error al verificar autenticación" 
+              });
+          }
+
+          if (resultsAdmin.length > 0) {
+              // Es un administrador
+              const userData = resultsAdmin[0];
+              return res.json({ 
+                  authenticated: true,
+                  user: {
+                      id: userData.id,
+                      nombre: userData.nombre,
+                      email: userData.email,
+                      tipo: userData.tipo
+                  }
+              });
+          }
+
+          // Si no se encuentra en ninguna tabla
+          return res.status(401).json({ 
+              authenticated: false, 
+              message: "Token no válido" 
+          });
+      });
+  });
+});
+
+//Enpoint para cerrar sesion 
+router.post("/logout", (req, res) => {
+  const sessionToken = req.cookies?.carolDental;
+
+  if (!sessionToken) {
+      return res.status(400).json({ message: "Sesión no activa o ya cerrada." });
+  }
+
+  // Borra la cookie
+  res.cookie("carolDental", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+      path: "/",
+      maxAge: 0,
+      domain: process.env.NODE_ENV === "production" ? ".onrender.com" : "localhost",
   });
 
-  // Limpia el token en la base de datos
+  // Queries separados
   const queryPacientes = `UPDATE pacientes SET cookie = NULL WHERE cookie = ?`;
   const queryAdministradores = `UPDATE administradores SET cookie = NULL WHERE cookie = ?`;
 
-  // Elimina la cookie en pacientes
+  // Primero intenta en pacientes
   db.query(queryPacientes, [sessionToken], (err, resultPacientes) => {
-    if (err) {
-      console.error("Error al limpiar token en la tabla pacientes:", err);
-      return res
-        .status(500)
-        .json({ message: "Error al cerrar sesión (pacientes)." });
-    }
-
-    console.log(`Pacientes afectados: ${resultPacientes.affectedRows}`);
-
-    // Elimina la cookie en administradores
-    db.query(
-      queryAdministradores,
-      [sessionToken],
-      (err, resultAdministradores) => {
-        if (err) {
-          console.error(
-            "Error al limpiar token en la tabla administradores:",
-            err
-          );
-          return res
-            .status(500)
-            .json({ message: "Error al cerrar sesión (administradores)." });
-        }
-
-        console.log(
-          `Administradores afectados: ${resultAdministradores.affectedRows}`
-        );
-
-        // Verifica si alguna fila fue afectada
-        if (
-          resultPacientes.affectedRows === 0 &&
-          resultAdministradores.affectedRows === 0
-        ) {
-          console.log("No se encontró un token válido en la base de datos.");
-          return res
-            .status(400)
-            .json({ message: "Sesión no activa o ya cerrada." });
-        }
-
-        console.log("Sesión cerrada exitosamente en la base de datos.");
-        return res
-          .status(200)
-          .json({ message: "Sesión cerrada exitosamente." });
+      if (err) {
+          console.error("Error al limpiar token en pacientes:", err);
+          return res.status(500).json({ 
+              message: "Error al cerrar sesión." 
+          });
       }
-    );
+
+      // Luego en administradores
+      db.query(queryAdministradores, [sessionToken], (err, resultAdmin) => {
+          if (err) {
+              console.error("Error al limpiar token en administradores:", err);
+              return res.status(500).json({ 
+                  message: "Error al cerrar sesión." 
+              });
+          }
+
+          // Verifica si se actualizó algún registro
+          if (resultPacientes.affectedRows === 0 && resultAdmin.affectedRows === 0) {
+              console.log("No se encontró el token en la base de datos");
+              // Aún consideramos el logout exitoso ya que la cookie fue eliminada
+              return res.status(200).json({ 
+                  message: "Sesión cerrada exitosamente." 
+              });
+          }
+
+          console.log("Sesión cerrada exitosamente en la base de datos");
+          return res.status(200).json({ 
+              message: "Sesión cerrada exitosamente." 
+          });
+      });
   });
 });
 
