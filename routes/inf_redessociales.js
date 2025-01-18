@@ -8,7 +8,7 @@ function validateUrl(url) {
 }
 
 // Endpoint para obtener todas las redes sociales
-router.get('/get', (req, res) => {
+router.get('/get', (_req, res) => {
     const query = `SELECT * FROM inf_redes_sociales ORDER BY fecha_creacion DESC`;
     db.query(query, (err, results) => {
         if (err) {
@@ -76,7 +76,7 @@ router.delete('/eliminar/:id', (req, res) => {
     });
 });
 // Endpoint para obtener todas las redes sociales
-router.get('/sociales', (req, res) => {
+router.get('/sociales', (_req, res) => {
     const sql = 'SELECT * FROM inf_redes_sociales';
     db.query(sql, (err, result) => {
       if (err) {

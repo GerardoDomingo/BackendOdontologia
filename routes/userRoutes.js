@@ -11,11 +11,6 @@ const cookieParser = require("cookie-parser");
 
 router.use(cookieParser()); // Configuración de cookie-parser
 
-const verificarCookie = (req, res, next) => {
-  console.log("Cookies recibidas:", req.cookies);
-  next();
-};
-
 // Función para generar un token aleatorio seguro
 function generateToken() {
   return crypto.randomBytes(64).toString("hex");

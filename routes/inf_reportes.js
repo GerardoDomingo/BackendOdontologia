@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require("../db");
 
 // Endpoint para obtener intentos de login
-router.get("/login-attempts", async (req, res) => {
+router.get("/login-attempts", async (_req, res) => {
   try {
     const attemptsSql = `
         SELECT id, ip_address, paciente_id, fecha_hora, intentos_fallidos, fecha_bloqueo
@@ -51,7 +51,7 @@ router.get("/login-attempts", async (req, res) => {
 });
 
 // Endpoint para obtener logs
-router.get("/logs", async (req, res) => {
+router.get("/logs", async (_req, res) => {
   const query = "SELECT * FROM inf_logs";
   db.query(query, (err, results) => {
     if (err) {
@@ -94,7 +94,7 @@ router.post("/update-config", async (req, res) => {
   const updateConfigSql =
     "UPDATE config SET setting_value = ? WHERE setting_name = ?";
 
-  db.query(updateConfigSql, [settingValue, settingName], (err, result) => {
+  db.query(updateConfigSql, [settingValue, settingName], (err, _result) => {
     if (err) {
       return res
         .status(500)
@@ -107,7 +107,7 @@ router.post("/update-config", async (req, res) => {
 });
 
 // Endpoint para obtener pacientes
-router.get("/pacientes", async (req, res) => {
+router.get("/pacientes", async (_req, res) => {
   try {
     const query = `
       SELECT 

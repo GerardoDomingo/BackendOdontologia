@@ -106,7 +106,7 @@ router.put('/deactivate/:id', (req, res) => {
     const query = 'UPDATE inf_terminos_condiciones SET estado = ? WHERE id = ?';
 
     db.promise().query(query, ['inactivo', id])
-        .then(result => {
+        .then(() => {
             res.status(200).send('Término de condiciones eliminado (lógicamente) con éxito');
         })
         .catch(err => {

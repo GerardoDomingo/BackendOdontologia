@@ -109,7 +109,7 @@ router.put('/deactivate/:id', (req, res) => {
     const query = 'UPDATE inf_politicas_privacidad SET estado = ? WHERE id = ?';
 
     db.promise().query(query, ['inactivo', id])
-        .then(result => {
+        .then(() => {
             res.status(200).send('Política de privacidad eliminada (lógicamente) con éxito');
         })
         .catch(err => {
